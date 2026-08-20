@@ -7,68 +7,526 @@
   <meta name="description" content="Drag the Premier League clubs into your predicted final table.">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <style>
-    :root { --ink: #17212b; --paper: #f5f7f3; --card: #fff; --muted: #71808b; --line: #d9e1df; --lime: #d7f362; --coral: #ff816b; --blue: #83d4ff; }
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    :root {
+      --ink: #090909;
+      --paper: #f6f0e5;
+      --purple: #7c4dff;
+      --lime: #c4ff3d;
+      --coral: #ff6b5e;
+      --yellow: #ffe43b;
+      --white: #fffdf8;
+      --shadow: 8px 8px 0 var(--ink);
+      --border: 3px solid var(--ink);
+    }
+
     * { box-sizing: border-box; }
-    body { margin: 0; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: 'Space Grotesk', Arial, sans-serif;
+    }
+
+    body::before {
+      position: fixed;
+      z-index: -1;
+      inset: 0;
+      background-image: radial-gradient(var(--ink) 1px, transparent 1px);
+      background-size: 18px 18px;
+      content: '';
+      opacity: .08;
+      pointer-events: none;
+    }
+
+    button, input { font: inherit; }
     a { color: inherit; }
-    .shell { max-width: 1120px; margin: 0 auto; padding: 0 24px 72px; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; }
-    .brand { font-weight: 900; letter-spacing: -.07em; text-decoration: none; font-size: 20px; }.brand b { color: var(--coral); }
-    .season-chip { border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px 12px; }
-    .hero { display: grid; grid-template-columns: 1.3fr .7fr; gap: 32px; padding: 56px 0 48px; align-items: end; }
-    .kicker { color: var(--coral); font: 800 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 18px; }
-    h1 { font-size: clamp(52px, 8vw, 100px); letter-spacing: -.09em; line-height: .86; margin: 0; max-width: 720px; }.hero h1 em { color: var(--coral); font-family: Georgia, serif; font-weight: 400; }
-    .hero-copy { color: #53616d; font-size: 17px; line-height: 1.5; margin: 26px 0 0; max-width: 480px; }
-    .hero-aside { background: var(--ink); border-radius: 24px; color: white; padding: 26px; position: relative; overflow: hidden; }.hero-aside:after { background: var(--lime); border-radius: 50%; content: ""; height: 160px; opacity: .85; position: absolute; right: -58px; top: -48px; width: 160px; }.hero-aside strong { display: block; font-size: 52px; letter-spacing: -.09em; position: relative; z-index: 1; }.hero-aside span { color: #b6c0c4; display: block; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; margin-top: 8px; position: relative; text-transform: uppercase; z-index: 1; }
-    .card { background: var(--card); border: 1px solid #e0e7e4; border-radius: 22px; box-shadow: 0 16px 48px rgba(23, 33, 43, .06); padding: 28px; }.form-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }.form-head h2 { font-size: 27px; letter-spacing: -.07em; margin: 0; }.form-head p { color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0; text-align: right; }
-    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px 0 10px; }.field label { display: block; color: var(--muted); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }.field input { border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); display: block; font: 600 15px inherit; outline: none; padding: 11px 0; width: 100%; }.field input:focus { border-color: var(--coral); }.field small { color: #9aa5aa; letter-spacing: 0; text-transform: none; }
-    .list-head { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 10px; }.list-head h3 { font-size: 13px; letter-spacing: -.02em; margin: 0; }.list-head span { color: var(--muted); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
-    #ranking { list-style: none; margin: 0; padding: 0; }.club { align-items: center; background: #fff; border-bottom: 1px solid #edf1ef; display: grid; gap: 12px; grid-template-columns: 32px 30px minmax(0, 1fr) 32px; min-height: 49px; }.club:first-child { border-top: 1px solid #edf1ef; }.club.sortable-ghost { background: #f1f7d6; opacity: .8; }.club.sortable-chosen { box-shadow: 0 6px 18px rgba(23,33,43,.12); }.drag-handle { color: #afbabd; cursor: grab; font-size: 19px; line-height: 1; text-align: center; }.drag-handle:active { cursor: grabbing; }.rank { color: var(--coral); font: 800 10px ui-monospace, SFMono-Regular, Menlo, monospace; }.club-name { font-size: 14px; font-weight: 700; letter-spacing: -.025em; }.club-dot { background: var(--ink); border-radius: 50%; height: 27px; width: 27px; }.club:nth-child(4n) .club-dot { background: var(--coral); }.club:nth-child(4n+1) .club-dot { background: var(--blue); }.club:nth-child(4n+2) .club-dot { background: var(--lime); }
-    .submit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px; }.submit-row p { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; max-width: 390px; }.submit { background: var(--lime); border: 0; border-radius: 999px; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 850; padding: 15px 20px; white-space: nowrap; }.submit:hover { background: var(--coral); }.submit:disabled { cursor: wait; opacity: .55; }
-    .notice { border-radius: 13px; display: none; font-size: 13px; line-height: 1.4; margin-top: 18px; padding: 13px 15px; }.notice.show { display: block; }.notice.success { background: #eff8d3; color: #475d12; }.notice.error { background: #ffebe7; color: #8d2e1f; }
-    .footer { color: var(--muted); display: flex; justify-content: space-between; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; margin-top: 30px; text-transform: uppercase; }
-    @media (max-width: 720px) { .shell { padding: 0 16px 48px; }.hero { display: block; padding: 44px 0 30px; }.hero-aside { margin-top: 32px; }.card { border-radius: 18px; padding: 20px 15px; }.form-head { display: block; }.form-head p { margin-top: 10px; text-align: left; }.fields { grid-template-columns: 1fr; gap: 10px; }.submit-row { align-items: stretch; display: block; }.submit { margin-top: 16px; width: 100%; }.footer { display: block; line-height: 1.8; }.footer span { display: block; } }
+
+    .shell { max-width: 1180px; margin: 0 auto; padding: 18px 24px 74px; }
+
+    .topbar {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      background: var(--ink);
+      color: var(--lime);
+      display: inline-block;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -.07em;
+      padding: 9px 13px;
+      text-decoration: none;
+      transform: rotate(-2deg);
+    }
+
+    .brand b { color: var(--coral); }
+
+    .season-chip {
+      background: var(--white);
+      border: var(--border);
+      box-shadow: 4px 4px 0 var(--ink);
+      font: 500 11px 'DM Mono', monospace;
+      padding: 10px 13px;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      align-items: end;
+      background: var(--purple);
+      border: 4px solid var(--ink);
+      box-shadow: 10px 10px 0 var(--ink);
+      display: grid;
+      gap: 32px;
+      grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr);
+      margin-bottom: 24px;
+      overflow: hidden;
+      padding: clamp(30px, 5vw, 58px);
+      position: relative;
+    }
+
+    .hero::after {
+      background: var(--lime);
+      border: 4px solid var(--ink);
+      border-radius: 50%;
+      content: '';
+      height: 120px;
+      position: absolute;
+      right: -32px;
+      top: -36px;
+      width: 120px;
+    }
+
+    .kicker {
+      font: 500 11px 'DM Mono', monospace;
+      letter-spacing: .1em;
+      margin: 0 0 18px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-family: 'Arial Black', Impact, 'Space Grotesk', sans-serif;
+      font-size: clamp(54px, 9vw, 112px);
+      letter-spacing: -.09em;
+      line-height: .82;
+      margin: 0;
+      max-width: 760px;
+      text-transform: uppercase;
+    }
+
+    .hero h1 em {
+      color: var(--lime);
+      font-style: normal;
+      text-shadow: 4px 4px 0 var(--ink);
+    }
+
+    .hero-copy {
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.45;
+      margin: 26px 0 0;
+      max-width: 530px;
+    }
+
+    .hero-aside {
+      background: var(--lime);
+      border: 4px solid var(--ink);
+      box-shadow: 7px 7px 0 var(--ink);
+      padding: 25px;
+      position: relative;
+      transform: rotate(2deg);
+      z-index: 1;
+    }
+
+    .hero-aside::before {
+      color: var(--ink);
+      content: 'THE MISSION';
+      font: 500 10px 'DM Mono', monospace;
+      letter-spacing: .12em;
+    }
+
+    .hero-aside strong {
+      display: block;
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: clamp(72px, 9vw, 124px);
+      letter-spacing: -.1em;
+      line-height: .86;
+      margin-top: 12px;
+    }
+
+    .hero-aside span {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-top: 14px;
+      max-width: 180px;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: var(--lime);
+      border: 4px solid var(--ink);
+      box-shadow: var(--shadow);
+      padding: clamp(20px, 4vw, 34px);
+    }
+
+    .form-head {
+      align-items: end;
+      border-bottom: var(--border);
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+      padding-bottom: 22px;
+    }
+
+    .form-head .kicker { margin-bottom: 10px; }
+
+    .form-head h2 {
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: -.08em;
+      line-height: .9;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    .form-head p:last-child {
+      background: var(--coral);
+      border: var(--border);
+      box-shadow: 4px 4px 0 var(--ink);
+      font: 500 10px 'DM Mono', monospace;
+      margin: 0 4px 4px 0;
+      padding: 10px 12px;
+      text-align: right;
+      text-transform: uppercase;
+    }
+
+    .fields {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr 1fr;
+      padding: 26px 0 12px;
+    }
+
+    .field label {
+      display: block;
+      font: 500 10px 'DM Mono', monospace;
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .field small { font-family: 'DM Mono', monospace; letter-spacing: 0; text-transform: none; }
+
+    .field input {
+      background: var(--white);
+      border: var(--border);
+      box-shadow: 4px 4px 0 var(--ink);
+      color: var(--ink);
+      display: block;
+      font-size: 16px;
+      font-weight: 600;
+      outline: none;
+      padding: 14px 13px;
+      width: 100%;
+    }
+
+    .field input:focus { box-shadow: 6px 6px 0 var(--ink); transform: translate(-2px, -2px); }
+
+    .list-head {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin: 26px 0 14px;
+    }
+
+    .list-head h3 {
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: 18px;
+      letter-spacing: -.06em;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    .list-head span {
+      font: 500 10px 'DM Mono', monospace;
+      text-align: right;
+      text-transform: uppercase;
+    }
+
+    #ranking { list-style: none; margin: 0; padding: 0; }
+
+    .club {
+      align-items: center;
+      background: var(--white);
+      border: var(--border);
+      box-shadow: 5px 5px 0 var(--ink);
+      cursor: grab;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 48px 58px 60px minmax(0, 1fr) auto;
+      margin-bottom: 13px;
+      min-height: 88px;
+      padding: 13px 16px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .club:active { cursor: grabbing; }
+    .club:nth-child(4n + 1) { background: var(--white); }
+    .club:nth-child(4n + 2) { background: #fff3a0; }
+    .club:nth-child(4n + 3) { background: var(--coral); }
+    .club:nth-child(4n) { background: #b8f4ff; }
+
+    .club.sortable-ghost {
+      background: var(--yellow);
+      box-shadow: none;
+      opacity: .65;
+    }
+
+    .club.sortable-chosen {
+      box-shadow: 9px 9px 0 var(--ink);
+      transform: translate(-3px, -3px) rotate(-.4deg);
+    }
+
+    .drag-handle {
+      align-items: center;
+      background: var(--ink);
+      color: var(--lime);
+      display: flex;
+      font-size: 26px;
+      height: 54px;
+      justify-content: center;
+      line-height: 1;
+      width: 48px;
+    }
+
+    .rank {
+      font: 600 19px 'DM Mono', monospace;
+      letter-spacing: -.08em;
+    }
+
+    .club-logo {
+      align-items: center;
+      background: var(--white);
+      border: 3px solid var(--ink);
+      display: flex;
+      height: 58px;
+      justify-content: center;
+      overflow: hidden;
+      padding: 5px;
+      width: 58px;
+    }
+
+    .club-logo img { display: block; height: 100%; object-fit: contain; width: 100%; }
+    .logo-fallback { font-size: 13px; font-weight: 700; letter-spacing: -.05em; }
+
+    .club-name {
+      font-family: 'Arial Black', Impact, 'Space Grotesk', sans-serif;
+      font-size: clamp(17px, 2.1vw, 23px);
+      letter-spacing: -.07em;
+      line-height: .95;
+      text-transform: uppercase;
+    }
+
+    .club::after {
+      color: var(--ink);
+      content: 'DRAG';
+      font: 500 9px 'DM Mono', monospace;
+      letter-spacing: .08em;
+    }
+
+    .submit-row {
+      align-items: center;
+      border-top: var(--border);
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      margin-top: 25px;
+      padding-top: 25px;
+    }
+
+    .submit-row p { font-size: 13px; font-weight: 600; line-height: 1.45; margin: 0; max-width: 480px; }
+
+    .submit {
+      background: var(--ink);
+      border: var(--border);
+      box-shadow: 5px 5px 0 var(--coral);
+      color: var(--lime);
+      cursor: pointer;
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: 14px;
+      letter-spacing: -.04em;
+      padding: 16px 20px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .submit:hover { background: var(--coral); box-shadow: 5px 5px 0 var(--ink); color: var(--ink); }
+    .submit:active { box-shadow: 1px 1px 0 var(--ink); transform: translate(4px, 4px); }
+    .submit:disabled { cursor: wait; opacity: .6; }
+
+    .notice {
+      border: var(--border);
+      display: none;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-top: 20px;
+      padding: 14px 16px;
+    }
+
+    .notice.show { display: block; }
+    .notice.success { background: var(--white); box-shadow: 4px 4px 0 var(--ink); }
+    .notice.error { background: var(--coral); box-shadow: 4px 4px 0 var(--ink); }
+
+    .footer {
+      display: flex;
+      font: 500 10px 'DM Mono', monospace;
+      justify-content: space-between;
+      letter-spacing: .06em;
+      margin-top: 34px;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 720px) {
+      .shell { padding: 14px 14px 50px; }
+      .topbar { margin-bottom: 16px; }
+      .season-chip { box-shadow: 3px 3px 0 var(--ink); font-size: 9px; padding: 8px 9px; }
+      .hero { display: block; padding: 30px 22px 28px; }
+      .hero::after { height: 75px; right: -28px; top: -26px; width: 75px; }
+      .hero-copy { font-size: 15px; margin-top: 22px; }
+      .hero-aside { margin: 28px 7px 6px 0; padding: 18px; }
+      .hero-aside strong { font-size: 72px; }
+      .card { padding: 20px 14px; }
+      .form-head { align-items: start; display: block; }
+      .form-head p:last-child { display: inline-block; margin-top: 18px; text-align: left; }
+      .fields { grid-template-columns: 1fr; gap: 16px; }
+      .list-head { align-items: start; display: block; }
+      .list-head span { display: block; margin-top: 7px; text-align: left; }
+      .club { gap: 9px; grid-template-columns: 40px 40px 52px minmax(0, 1fr); min-height: 82px; padding: 10px; }
+      .drag-handle { font-size: 22px; height: 52px; width: 40px; }
+      .club-logo { height: 52px; width: 52px; }
+      .club::after { display: none; }
+      .club-name { font-size: 17px; }
+      .submit-row { align-items: stretch; display: block; }
+      .submit { margin-top: 18px; width: 100%; }
+      .footer { display: block; line-height: 1.8; }
+      .footer span { display: block; }
+    }
   </style>
 </head>
 <body>
   <main class="shell">
-    <header class="topbar"><a class="brand" href=".">final whistle<b>·</b></a><span class="season-chip">PL 2026 / 27</span></header>
+    <header class="topbar">
+      <a class="brand" href=".">final whistle<b>·</b></a>
+      <span class="season-chip">PL 2026 / 27</span>
+    </header>
+
     <section class="hero">
-      <div><p class="kicker">Premier League prediction game</p><h1>Call the final <em>table.</em></h1><p class="hero-copy">Drag every club into the place you think they’ll finish. Lock it in, then let the season do the talking.</p></div>
+      <div>
+        <p class="kicker">Premier League prediction game</p>
+        <h1>Call the final <em>table.</em></h1>
+        <p class="hero-copy">Drag every club into the place you think they’ll finish. Make the call, lock it in, and let the season do the talking.</p>
+      </div>
       <div class="hero-aside"><strong>20</strong><span>clubs to place<br>one prediction per person</span></div>
     </section>
 
     <section class="card" aria-labelledby="form-title">
       <form id="prediction-form">
-        <div class="form-head"><div><p class="kicker">Make your call</p><h2 id="form-title">Your predicted finish</h2></div><p>Drag the rows<br>to reorder</p></div>
+        <div class="form-head">
+          <div><p class="kicker">Make your call</p><h2 id="form-title">Your predicted finish</h2></div>
+          <p>Drag anywhere<br>on a row</p>
+        </div>
+
         <div class="fields">
           <div class="field"><label for="name">Name</label><input id="name" name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Alex from block 4"></div>
           <div class="field"><label for="email">Email <small>(for confirmation)</small></label><input id="email" name="email" autocomplete="email" type="email" required maxlength="160" placeholder="you@example.com"></div>
         </div>
-        <div class="list-head"><h3>Final standings</h3><span>Touch-friendly drag and drop</span></div>
+
+        <div class="list-head"><h3>Final standings</h3><span>Big cards · big calls · touch-friendly</span></div>
         <ol id="ranking" aria-label="Predicted final standings"></ol>
+
         <div class="submit-row"><p>Your prediction is saved to the contest sheet when you submit. You won’t be able to edit it here afterward.</p><button class="submit" type="submit">Lock in my prediction ↗</button></div>
         <div id="notice" class="notice" role="status" aria-live="polite"></div>
       </form>
     </section>
+
     <footer class="footer"><span>final whistle · make your call count.</span><span>Built for friends, not dashboards.</span></footer>
   </main>
+
   <script>
     const APPS_SCRIPT_WEB_APP_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
-    const teams = ['Arsenal', 'Aston Villa', 'Bournemouth', 'Brentford', 'Brighton', 'Chelsea', 'Coventry City', 'Crystal Palace', 'Everton', 'Fulham', 'Hull City', 'Ipswich Town', 'Leeds United', 'Liverpool', 'Manchester City', 'Manchester United', 'Newcastle United', 'Nottingham Forest', 'Sunderland', 'Tottenham Hotspur'];
+    const teams = [
+      { name: 'Arsenal', crest: '57', initials: 'ARS' },
+      { name: 'Aston Villa', crest: '58', initials: 'AVL' },
+      { name: 'Bournemouth', crest: '1044', initials: 'BOU' },
+      { name: 'Brentford', crest: '402', initials: 'BRE' },
+      { name: 'Brighton', crest: '397', initials: 'BHA' },
+      { name: 'Chelsea', crest: '61', initials: 'CHE' },
+      { name: 'Coventry City', crest: '1076', initials: 'COV' },
+      { name: 'Crystal Palace', crest: '354', initials: 'CRY' },
+      { name: 'Everton', crest: '62', initials: 'EVE' },
+      { name: 'Fulham', crest: '63', initials: 'FUL' },
+      { name: 'Hull City', crest: '322', initials: 'HUL' },
+      { name: 'Ipswich Town', crest: '349', initials: 'IPS' },
+      { name: 'Leeds United', crest: '341', initials: 'LEE' },
+      { name: 'Liverpool', crest: '64', initials: 'LIV' },
+      { name: 'Manchester City', crest: '65', initials: 'MCI' },
+      { name: 'Manchester United', crest: '66', initials: 'MUN' },
+      { name: 'Newcastle United', crest: '67', initials: 'NEW' },
+      { name: 'Nottingham Forest', crest: '351', initials: 'NFO' },
+      { name: 'Sunderland', crest: '71', initials: 'SUN' },
+      { name: 'Tottenham Hotspur', crest: '73', initials: 'TOT' }
+    ];
+
     const ranking = document.getElementById('ranking');
     const notice = document.getElementById('notice');
     const submitButton = document.querySelector('.submit');
 
     function renderTeams() {
-      ranking.innerHTML = teams.map((team, index) => `<li class="club" data-team="${team}"><span class="drag-handle" aria-hidden="true">⠿</span><span class="rank">${String(index + 1).padStart(2, '0')}</span><span class="club-name">${team}</span><span class="club-dot" aria-hidden="true"></span></li>`).join('');
+      ranking.innerHTML = teams.map((team, index) => `
+        <li class="club" data-team="${team.name}" aria-label="${index + 1}. ${team.name}; drag anywhere on this card to reorder">
+          <span class="drag-handle" aria-hidden="true">⠿</span>
+          <span class="rank">${String(index + 1).padStart(2, '0')}</span>
+          <span class="club-logo">
+            <img src="https://crests.football-data.org/${team.crest}.svg" alt="${team.name} crest" loading="lazy">
+            <span class="logo-fallback" hidden>${team.initials}</span>
+          </span>
+          <span class="club-name">${team.name}</span>
+        </li>`).join('');
+
+      ranking.querySelectorAll('.club-logo img').forEach((image) => {
+        image.addEventListener('error', () => {
+          image.hidden = true;
+          image.nextElementSibling.hidden = false;
+        }, { once: true });
+      });
     }
 
     function currentRanking() { return [...ranking.querySelectorAll('[data-team]')].map((row) => row.dataset.team); }
+    function updateRanks() { [...ranking.children].forEach((row, index) => { row.querySelector('.rank').textContent = String(index + 1).padStart(2, '0'); }); }
     function showNotice(message, kind) { notice.textContent = message; notice.className = `notice show ${kind}`; }
 
     renderTeams();
-    new Sortable(ranking, { animation: 180, handle: '.drag-handle', ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: () => { [...ranking.children].forEach((row, index) => row.querySelector('.rank').textContent = String(index + 1).padStart(2, '0')); } });
+    new Sortable(ranking, {
+      animation: 180,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      delay: 60,
+      delayOnTouchOnly: true,
+      fallbackOnBody: true,
+      forceFallback: true,
+      touchStartThreshold: 5,
+      onEnd: updateRanks
+    });
 
     document.getElementById('prediction-form').addEventListener('submit', async (event) => {
       event.preventDefault();
