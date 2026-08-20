@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Final Whistle — Premier League prediction game</title>
+  <meta name="description" content="Drag the Premier League clubs into your predicted final table.">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <style>
+    :root { --ink: #17212b; --paper: #f5f7f3; --card: #fff; --muted: #71808b; --line: #d9e1df; --lime: #d7f362; --coral: #ff816b; --blue: #83d4ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    a { color: inherit; }
+    .shell { max-width: 1120px; margin: 0 auto; padding: 0 24px 72px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; }
+    .brand { font-weight: 900; letter-spacing: -.07em; text-decoration: none; font-size: 20px; }.brand b { color: var(--coral); }
+    .season-chip { border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px 12px; }
+    .hero { display: grid; grid-template-columns: 1.3fr .7fr; gap: 32px; padding: 56px 0 48px; align-items: end; }
+    .kicker { color: var(--coral); font: 800 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 18px; }
+    h1 { font-size: clamp(52px, 8vw, 100px); letter-spacing: -.09em; line-height: .86; margin: 0; max-width: 720px; }.hero h1 em { color: var(--coral); font-family: Georgia, serif; font-weight: 400; }
+    .hero-copy { color: #53616d; font-size: 17px; line-height: 1.5; margin: 26px 0 0; max-width: 480px; }
+    .hero-aside { background: var(--ink); border-radius: 24px; color: white; padding: 26px; position: relative; overflow: hidden; }.hero-aside:after { background: var(--lime); border-radius: 50%; content: ""; height: 160px; opacity: .85; position: absolute; right: -58px; top: -48px; width: 160px; }.hero-aside strong { display: block; font-size: 52px; letter-spacing: -.09em; position: relative; z-index: 1; }.hero-aside span { color: #b6c0c4; display: block; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; margin-top: 8px; position: relative; text-transform: uppercase; z-index: 1; }
+    .card { background: var(--card); border: 1px solid #e0e7e4; border-radius: 22px; box-shadow: 0 16px 48px rgba(23, 33, 43, .06); padding: 28px; }.form-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }.form-head h2 { font-size: 27px; letter-spacing: -.07em; margin: 0; }.form-head p { color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0; text-align: right; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px 0 10px; }.field label { display: block; color: var(--muted); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }.field input { border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); display: block; font: 600 15px inherit; outline: none; padding: 11px 0; width: 100%; }.field input:focus { border-color: var(--coral); }.field small { color: #9aa5aa; letter-spacing: 0; text-transform: none; }
+    .list-head { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 10px; }.list-head h3 { font-size: 13px; letter-spacing: -.02em; margin: 0; }.list-head span { color: var(--muted); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
+    #ranking { list-style: none; margin: 0; padding: 0; }.club { align-items: center; background: #fff; border-bottom: 1px solid #edf1ef; display: grid; gap: 12px; grid-template-columns: 32px 30px minmax(0, 1fr) 32px; min-height: 49px; }.club:first-child { border-top: 1px solid #edf1ef; }.club.sortable-ghost { background: #f1f7d6; opacity: .8; }.club.sortable-chosen { box-shadow: 0 6px 18px rgba(23,33,43,.12); }.drag-handle { color: #afbabd; cursor: grab; font-size: 19px; line-height: 1; text-align: center; }.drag-handle:active { cursor: grabbing; }.rank { color: var(--coral); font: 800 10px ui-monospace, SFMono-Regular, Menlo, monospace; }.club-name { font-size: 14px; font-weight: 700; letter-spacing: -.025em; }.club-dot { background: var(--ink); border-radius: 50%; height: 27px; width: 27px; }.club:nth-child(4n) .club-dot { background: var(--coral); }.club:nth-child(4n+1) .club-dot { background: var(--blue); }.club:nth-child(4n+2) .club-dot { background: var(--lime); }
+    .submit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px; }.submit-row p { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; max-width: 390px; }.submit { background: var(--lime); border: 0; border-radius: 999px; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 850; padding: 15px 20px; white-space: nowrap; }.submit:hover { background: var(--coral); }.submit:disabled { cursor: wait; opacity: .55; }
+    .notice { border-radius: 13px; display: none; font-size: 13px; line-height: 1.4; margin-top: 18px; padding: 13px 15px; }.notice.show { display: block; }.notice.success { background: #eff8d3; color: #475d12; }.notice.error { background: #ffebe7; color: #8d2e1f; }
+    .footer { color: var(--muted); display: flex; justify-content: space-between; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; margin-top: 30px; text-transform: uppercase; }
+    @media (max-width: 720px) { .shell { padding: 0 16px 48px; }.hero { display: block; padding: 44px 0 30px; }.hero-aside { margin-top: 32px; }.card { border-radius: 18px; padding: 20px 15px; }.form-head { display: block; }.form-head p { margin-top: 10px; text-align: left; }.fields { grid-template-columns: 1fr; gap: 10px; }.submit-row { align-items: stretch; display: block; }.submit { margin-top: 16px; width: 100%; }.footer { display: block; line-height: 1.8; }.footer span { display: block; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><a class="brand" href=".">final whistle<b>·</b></a><span class="season-chip">PL 2026 / 27</span></header>
+    <section class="hero">
+      <div><p class="kicker">Premier League prediction game</p><h1>Call the final <em>table.</em></h1><p class="hero-copy">Drag every club into the place you think they’ll finish. Lock it in, then let the season do the talking.</p></div>
+      <div class="hero-aside"><strong>20</strong><span>clubs to place<br>one prediction per person</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="form-title">
+      <form id="prediction-form">
+        <div class="form-head"><div><p class="kicker">Make your call</p><h2 id="form-title">Your predicted finish</h2></div><p>Drag the rows<br>to reorder</p></div>
+        <div class="fields">
+          <div class="field"><label for="name">Name</label><input id="name" name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Alex from block 4"></div>
+          <div class="field"><label for="email">Email <small>(for confirmation)</small></label><input id="email" name="email" autocomplete="email" type="email" required maxlength="160" placeholder="you@example.com"></div>
+        </div>
+        <div class="list-head"><h3>Final standings</h3><span>Touch-friendly drag and drop</span></div>
+        <ol id="ranking" aria-label="Predicted final standings"></ol>
+        <div class="submit-row"><p>Your prediction is saved to the contest sheet when you submit. You won’t be able to edit it here afterward.</p><button class="submit" type="submit">Lock in my prediction ↗</button></div>
+        <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+    <footer class="footer"><span>final whistle · make your call count.</span><span>Built for friends, not dashboards.</span></footer>
+  </main>
+  <script>
+    const APPS_SCRIPT_WEB_APP_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+    const teams = ['Arsenal', 'Aston Villa', 'Bournemouth', 'Brentford', 'Brighton', 'Chelsea', 'Coventry City', 'Crystal Palace', 'Everton', 'Fulham', 'Hull City', 'Ipswich Town', 'Leeds United', 'Liverpool', 'Manchester City', 'Manchester United', 'Newcastle United', 'Nottingham Forest', 'Sunderland', 'Tottenham Hotspur'];
+    const ranking = document.getElementById('ranking');
+    const notice = document.getElementById('notice');
+    const submitButton = document.querySelector('.submit');
+
+    function renderTeams() {
+      ranking.innerHTML = teams.map((team, index) => `<li class="club" data-team="${team}"><span class="drag-handle" aria-hidden="true">⠿</span><span class="rank">${String(index + 1).padStart(2, '0')}</span><span class="club-name">${team}</span><span class="club-dot" aria-hidden="true"></span></li>`).join('');
+    }
+
+    function currentRanking() { return [...ranking.querySelectorAll('[data-team]')].map((row) => row.dataset.team); }
+    function showNotice(message, kind) { notice.textContent = message; notice.className = `notice show ${kind}`; }
+
+    renderTeams();
+    new Sortable(ranking, { animation: 180, handle: '.drag-handle', ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: () => { [...ranking.children].forEach((row, index) => row.querySelector('.rank').textContent = String(index + 1).padStart(2, '0')); } });
+
+    document.getElementById('prediction-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (APPS_SCRIPT_WEB_APP_URL.includes('PASTE_YOUR')) { showNotice('The contest form still needs its Google Apps Script URL. See the setup instructions in the README.', 'error'); return; }
+      submitButton.disabled = true;
+      submitButton.textContent = 'Sending…';
+      const payload = { name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), season: '2026/27', rankings: currentRanking() };
+      try {
+        await fetch(APPS_SCRIPT_WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+        showNotice('Prediction sent — check your inbox for confirmation. Good luck.', 'success');
+        event.target.reset();
+        renderTeams();
+      } catch (error) {
+        showNotice('We could not send the prediction. Please try again or contact the contest organizer.', 'error');
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Lock in my prediction ↗';
+      }
+    });
+  </script>
+</body>
+</html>
