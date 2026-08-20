@@ -394,8 +394,8 @@
         </div>
 
         <div class="fields">
-          <div class="field"><label for="name">Name</label><input id="name" name="name" autocomplete="name" required maxlength="80" placeholder="e.g. Alex from block 4"></div>
-          <div class="field"><label for="email">Email <small>(for confirmation)</small></label><input id="email" name="email" autocomplete="email" type="email" required maxlength="160" placeholder="you@example.com"></div>
+          <div class="field"><label for="name">Name</label><input id="name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="e.g. Alex from block 4"></div>
+          <div class="field"><label for="email">Email <small>(for confirmation)</small></label><input id="email" name="email" autocomplete="email" inputmode="email" type="email" required maxlength="160" placeholder="you@example.com"></div>
         </div>
 
         <div class="list-head"><h3>Final standings</h3><span>Big cards · big calls · touch-friendly</span></div>
@@ -436,6 +436,9 @@
     const ranking = document.getElementById('ranking');
     const notice = document.getElementById('notice');
     const submitButton = document.querySelector('.submit');
+    const form = document.getElementById('prediction-form');
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
 
     function renderTeams() {
       ranking.innerHTML = teams.map((team, index) => `
@@ -460,6 +463,16 @@
     function currentRanking() { return [...ranking.querySelectorAll('[data-team]')].map((row) => row.dataset.team); }
     function updateRanks() { [...ranking.children].forEach((row, index) => { row.querySelector('.rank').textContent = String(index + 1).padStart(2, '0'); }); }
     function showNotice(message, kind) { notice.textContent = message; notice.className = `notice show ${kind}`; }
+    function validateParticipant() {
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      nameInput.setCustomValidity(name.length >= 2 && name.length <= 80 ? '' : 'Please enter your name.');
+      emailInput.setCustomValidity(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'Please enter a valid email address.');
+      return form.reportValidity();
+    }
+
+    nameInput.addEventListener('input', () => nameInput.setCustomValidity(''));
+    emailInput.addEventListener('input', () => emailInput.setCustomValidity(''));
 
     renderTeams();
     new Sortable(ranking, {
@@ -474,12 +487,13 @@
       onEnd: updateRanks
     });
 
-    document.getElementById('prediction-form').addEventListener('submit', async (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (!validateParticipant()) return;
       if (APPS_SCRIPT_WEB_APP_URL.includes('PASTE_YOUR')) { showNotice('The contest form still needs its Google Apps Script URL. See the setup instructions in the README.', 'error'); return; }
       submitButton.disabled = true;
       submitButton.textContent = 'Sending…';
-      const payload = { name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), season: '2026/27', rankings: currentRanking() };
+      const payload = { name: nameInput.value.trim(), email: emailInput.value.trim(), season: '2026/27', rankings: currentRanking() };
       try {
         await fetch(APPS_SCRIPT_WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
         showNotice('Prediction sent — check your inbox for confirmation. Good luck.', 'success');

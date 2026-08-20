@@ -42,8 +42,8 @@ function savePrediction_(payload) {
   const season = String(payload.season || '2026/27').trim();
   const rankings = Array.isArray(payload.rankings) ? payload.rankings.map(String) : [];
 
-  if (!name) throw new Error('Name is required.');
-  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('A valid email is required.');
+  if (name.length < 2 || name.length > 80) throw new Error('Name is required.');
+  if (email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('A valid email is required.');
   if (rankings.length !== 20 || new Set(rankings).size !== 20) {
     throw new Error('Place every club exactly once.');
   }
