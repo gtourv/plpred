@@ -128,6 +128,7 @@
     .hero-status p { font-size: 14px; font-weight: 700; line-height: 1.3; margin: 15px 0 0; text-transform: uppercase; }
 
     .dashboard-grid { align-items: start; display: grid; gap: 24px; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+    .left-rail { display: grid; gap: 24px; min-width: 0; }
 
     .panel { background: var(--white); border: 4px solid var(--ink); box-shadow: var(--shadow); padding: clamp(18px, 3vw, 28px); }
     .panel.lime { background: var(--lime); }
@@ -200,27 +201,24 @@
     .accuracy-swatch.accuracy-off { background: var(--accuracy-off); }
     .accuracy-swatch.accuracy-far { background: var(--accuracy-far); }
 
-    .similarity-panel { margin-top: 24px; }
-    .insight-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, 1fr); margin-top: 20px; }
+    .similarity-panel { margin: 0; }
+    .insight-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 20px; }
     .insight-card { background: var(--neutral-row); border: var(--border); box-shadow: 4px 4px 0 var(--ink); min-width: 0; padding: 13px; }
     .insight-label { display: block; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
     .insight-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(20px, 3vw, 31px); letter-spacing: -.08em; line-height: .9; margin-top: 10px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
     .insight-detail { display: block; font: 500 9px 'DM Mono', monospace; line-height: 1.35; margin-top: 9px; text-transform: uppercase; }
-    .pairwise-heading { align-items: end; border-bottom: var(--border); display: flex; gap: 16px; justify-content: space-between; margin-top: 29px; padding-bottom: 12px; }
-    .pairwise-heading h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: 20px; letter-spacing: -.07em; line-height: .9; margin: 0; text-transform: uppercase; }
-    .pairwise-heading p { font: 500 9px 'DM Mono', monospace; margin: 0; text-align: right; text-transform: uppercase; }
-    .pairwise-wrap { margin-top: 13px; max-height: 520px; overflow: auto; }
-    .pairwise-list { display: grid; gap: 7px; min-width: 530px; }
-    .pairwise-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) 88px 85px 78px; min-height: 44px; padding: 6px 9px; }
-    .pairwise-row.pairwise-head { background: var(--ink); border-color: var(--ink); color: var(--white); font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; min-height: 31px; text-transform: uppercase; }
-    .pairwise-head { position: sticky; top: 0; z-index: 1; }
-    .pairwise-names { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pairwise-names strong { font-size: 12px; }
-    .pairwise-stat { font: 500 10px 'DM Mono', monospace; text-align: center; }
-    .similarity-score { border: 2px solid var(--ink); font: 700 12px 'DM Mono', monospace; padding: 5px 4px; text-align: center; }
-    .similarity-score.high { background: var(--similarity-high); }
-    .similarity-score.mid { background: var(--similarity-mid); }
-    .similarity-score.low { background: var(--similarity-low); }
+    .pairwise-compare { border-top: var(--border); margin-top: 23px; padding-top: 18px; }
+    .pairwise-compare-heading { align-items: end; display: flex; gap: 12px; justify-content: space-between; }
+    .pairwise-compare-heading h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: 20px; letter-spacing: -.07em; line-height: .9; margin: 0; text-transform: uppercase; }
+    .pairwise-compare-heading p { font: 500 9px 'DM Mono', monospace; margin: 0; text-align: right; text-transform: uppercase; }
+    .pairwise-metrics { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; margin-top: 13px; }
+    .pairwise-metric { background: var(--neutral-row); border: 2px solid var(--ink); min-width: 0; padding: 10px; }
+    .pairwise-metric-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .pairwise-metric-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(19px, 3vw, 29px); letter-spacing: -.08em; line-height: .9; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .pairwise-metric-detail { display: block; font: 500 8px 'DM Mono', monospace; line-height: 1.3; margin-top: 7px; text-transform: uppercase; }
+    .pairwise-metric.similarity-high { background: var(--similarity-high); }
+    .pairwise-metric.similarity-mid { background: var(--similarity-mid); }
+    .pairwise-metric.similarity-low { background: var(--similarity-low); }
 
     .full-panel { margin-top: 24px; }
     .current-table { display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: 18px; }
@@ -259,8 +257,9 @@
       .current-table { grid-template-columns: repeat(2, 1fr); }
       .prediction-row { grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; }
       .insight-grid { grid-template-columns: 1fr 1fr; }
-      .pairwise-heading { align-items: start; display: block; }
-      .pairwise-heading p { margin-top: 8px; text-align: left; }
+      .pairwise-compare-heading { align-items: start; display: block; }
+      .pairwise-compare-heading p { margin-top: 8px; text-align: left; }
+      .pairwise-metrics { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -287,14 +286,24 @@
     <div id="error-state" class="state error" hidden></div>
 
     <div class="dashboard-grid" id="dashboard" hidden>
-      <section class="panel lime" aria-labelledby="leaderboard-title">
-        <div class="panel-heading">
-          <div><p class="kicker">The race</p><h2 id="leaderboard-title">Everyone’s score</h2></div>
-          <p>Lower score<br>is better</p>
-        </div>
-        <div class="score-list" id="score-list"></div>
-        <div id="score-empty" class="state empty" hidden>No score update yet. The leaderboard will appear after the next scheduled check.</div>
-      </section>
+      <div class="left-rail">
+        <section class="panel lime" aria-labelledby="leaderboard-title">
+          <div class="panel-heading">
+            <div><p class="kicker">The race</p><h2 id="leaderboard-title">Everyone’s score</h2></div>
+            <p>Lower score<br>is better</p>
+          </div>
+          <div class="score-list" id="score-list"></div>
+          <div id="score-empty" class="state empty" hidden>No score update yet. The leaderboard will appear after the next scheduled check.</div>
+        </section>
+
+        <section class="panel similarity-panel" id="similarity-panel" aria-labelledby="similarity-title" hidden>
+          <div class="panel-heading">
+            <div><p class="kicker">Across the room</p><h2 id="similarity-title">Prediction patterns</h2></div>
+            <p id="similarity-meta">Waiting for predictions</p>
+          </div>
+          <div class="insight-grid" id="insight-grid"></div>
+        </section>
+      </div>
 
       <section class="panel" aria-labelledby="compare-title">
         <div class="panel-heading">
@@ -312,25 +321,16 @@
           <span><i class="accuracy-swatch accuracy-far"></i>Far off</span>
         </div>
         <div class="comparison-stage" id="comparison-stage"></div>
+        <div class="pairwise-compare" id="pairwise-compare" hidden>
+          <div class="pairwise-compare-heading">
+            <h3 id="pairwise-title">Pairwise read</h3>
+            <p>How alike are these calls?</p>
+          </div>
+          <div class="pairwise-metrics" id="pairwise-metrics"></div>
+        </div>
         <div id="compare-empty" class="state empty" hidden>No predictions are available yet.</div>
       </section>
     </div>
-
-    <section class="panel similarity-panel" id="similarity-panel" aria-labelledby="similarity-title" hidden>
-      <div class="panel-heading">
-        <div><p class="kicker">Across the room</p><h2 id="similarity-title">Prediction patterns</h2></div>
-        <p id="pairwise-meta">Waiting for predictions</p>
-      </div>
-      <div class="insight-grid" id="insight-grid"></div>
-      <div class="pairwise-heading">
-        <h3>Every pair</h3>
-        <p>Rank similarity · highest to lowest</p>
-      </div>
-      <div class="pairwise-wrap">
-        <div class="pairwise-list" id="pairwise-list"></div>
-      </div>
-      <div id="similarity-empty" class="state empty" hidden>Pairwise patterns will appear when at least two complete predictions are available.</div>
-    </section>
 
     <section class="panel full-panel" id="current-panel" aria-labelledby="current-title" hidden>
       <div class="panel-heading">
@@ -379,11 +379,12 @@
       personB: document.getElementById('person-b'),
       comparison: document.getElementById('comparison-stage'),
       compareEmpty: document.getElementById('compare-empty'),
+      pairwiseCompare: document.getElementById('pairwise-compare'),
+      pairwiseTitle: document.getElementById('pairwise-title'),
+      pairwiseMetrics: document.getElementById('pairwise-metrics'),
       similarityPanel: document.getElementById('similarity-panel'),
       insightGrid: document.getElementById('insight-grid'),
-      pairwiseMeta: document.getElementById('pairwise-meta'),
-      pairwiseList: document.getElementById('pairwise-list'),
-      similarityEmpty: document.getElementById('similarity-empty'),
+      similarityMeta: document.getElementById('similarity-meta'),
       currentPanel: document.getElementById('current-panel'),
       currentTable: document.getElementById('current-table'),
       standingsMeta: document.getElementById('standings-meta'),
@@ -449,11 +450,17 @@
       const sharedTeams = [...firstPositions.keys()].filter((team) => secondPositions.has(team));
       let distance = 0;
       let exactSlots = 0;
+      let biggestSplit = null;
       sharedTeams.forEach((team) => {
         const firstPosition = firstPositions.get(team);
         const secondPosition = secondPositions.get(team);
-        distance += Math.abs(firstPosition - secondPosition);
+        const gap = Math.abs(firstPosition - secondPosition);
+        distance += gap;
         if (firstPosition === secondPosition) exactSlots += 1;
+        if (!biggestSplit || gap > biggestSplit.gap) {
+          const knownClub = clubs.find((club) => normaliseTeam(club.name) === team);
+          biggestSplit = { name: knownClub?.name || team, firstPosition, secondPosition, gap };
+        }
       });
       const firstTopFour = new Set([...firstPositions].filter(([, position]) => position <= 4).map(([team]) => team));
       const secondTopFour = new Set([...secondPositions].filter(([, position]) => position <= 4).map(([team]) => team));
@@ -465,6 +472,7 @@
         similarity: Math.max(0, Math.round((1 - distance / MAX_PAIRWISE_DISTANCE) * 100)),
         exactSlots,
         topFour,
+        biggestSplit,
       };
     }
 
@@ -521,15 +529,13 @@
       const consensus = consensusLeader(entries);
       const contested = mostContestedTeam(entries);
       elements.similarityPanel.hidden = false;
-      elements.pairwiseMeta.textContent = `${entries.length} entrant${entries.length === 1 ? '' : 's'} · ${pairs.length} pairing${pairs.length === 1 ? '' : 's'}`;
+      elements.similarityMeta.textContent = `${entries.length} entrant${entries.length === 1 ? '' : 's'}`;
       elements.insightGrid.innerHTML = [
         insightCard('Closest pair', closest ? `${closest.firstName} ↔ ${closest.secondName}` : 'Not yet', closest ? `${closest.similarity}% alike · ${closest.exactSlots}/20 exact slots` : 'Need two complete predictions'),
         insightCard('Widest pair', widest ? `${widest.firstName} ↔ ${widest.secondName}` : 'Not yet', widest ? `${widest.similarity}% alike · ${widest.distance} places apart` : 'Need two complete predictions'),
         insightCard('Most consensus', consensus ? consensus.name : 'Not yet', consensus ? `${consensus.average}% average similarity to the group` : 'Need two complete predictions'),
         insightCard('Most spread team', contested ? contested.name : 'Not yet', contested ? `${contested.spread} places between picks · ${contested.picks.join(', ')}` : 'Need predictions'),
       ].join('');
-      elements.similarityEmpty.hidden = pairs.length > 0;
-      elements.pairwiseList.innerHTML = pairs.length ? `<div class="pairwise-row pairwise-head" role="row"><span>Pair</span><span>Alike</span><span>Exact slots</span><span>Top four</span></div>${pairs.map((pair) => `<div class="pairwise-row" role="row"><span class="pairwise-names" title="${escapeHtml(`${pair.firstName} versus ${pair.secondName}`)}"><strong>${escapeHtml(pair.firstName)}</strong> <span>↔</span> <strong>${escapeHtml(pair.secondName)}</strong></span><strong class="similarity-score ${similarityBand(pair.similarity)}" title="${pair.distance} total places apart">${pair.similarity}%</strong><span class="pairwise-stat">${pair.exactSlots}/20</span><span class="pairwise-stat">${pair.topFour}/4</span></div>`).join('')}` : '';
     }
 
     function loadPublicData() {
@@ -595,11 +601,32 @@
       return `<article class="prediction-card"><div class="prediction-card-head"><div><span class="prediction-card-label">Prediction</span><h3>${escapeHtml(name)}</h3></div><div class="card-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>${prediction ? `<div class="prediction-list">${rows}</div>` : '<div class="state empty">No prediction found for this person.</div>'}</article>`;
     }
 
+    function pairwiseMetric(label, value, detail, className = '') {
+      return `<div class="pairwise-metric ${className}"><span class="pairwise-metric-label">${escapeHtml(label)}</span><strong class="pairwise-metric-value" title="${escapeHtml(value)}">${escapeHtml(value)}</strong><span class="pairwise-metric-detail">${escapeHtml(detail)}</span></div>`;
+    }
+
+    function renderPairwiseComparison() {
+      const first = predictionFor(state.selectedA);
+      const second = predictionFor(state.selectedB);
+      const pair = first && second ? comparePredictions(first, second) : null;
+      elements.pairwiseCompare.hidden = !pair;
+      if (!pair) return;
+      const biggestSplit = pair.biggestSplit;
+      elements.pairwiseTitle.textContent = `${pair.firstName} ↔ ${pair.secondName}`;
+      elements.pairwiseMetrics.innerHTML = [
+        pairwiseMetric('Rank similarity', `${pair.similarity}%`, `${pair.distance} total places apart`, `similarity-${similarityBand(pair.similarity)}`),
+        pairwiseMetric('Exact slots', `${pair.exactSlots}/20`, 'same-position picks'),
+        pairwiseMetric('Top-four overlap', `${pair.topFour}/4`, 'shared top-four teams'),
+        pairwiseMetric('Biggest split', biggestSplit ? biggestSplit.name : 'None', biggestSplit ? `${pair.firstName} #${biggestSplit.firstPosition} · ${pair.secondName} #${biggestSplit.secondPosition}` : 'No difference found'),
+      ].join('');
+    }
+
     function renderComparison() {
       const selected = [state.selectedA, state.selectedB].filter(Boolean);
       elements.comparison.className = `comparison-stage ${selected.length > 1 ? 'dual' : ''}`;
       elements.comparison.innerHTML = selected.map(renderPredictionCard).join('');
       elements.compareEmpty.hidden = selected.length > 0;
+      renderPairwiseComparison();
       elements.comparison.querySelectorAll('.team-crest img').forEach((image) => {
         image.addEventListener('error', () => { image.hidden = true; image.nextElementSibling.hidden = false; }, { once: true });
       });
