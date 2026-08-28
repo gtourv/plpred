@@ -15,8 +15,12 @@
       --lime: #c4ff3d;
       --coral: #ff6b5e;
       --yellow: #ffe43b;
-      --blue: #b8f4ff;
       --white: #fffdf8;
+      --neutral-row: #f1f0eb;
+      --accuracy-right: #d9f7d0;
+      --accuracy-close: #d9f1ff;
+      --accuracy-off: #e6ddff;
+      --accuracy-far: #cbb8ff;
       --shadow: 8px 8px 0 var(--ink);
       --border: 3px solid var(--ink);
     }
@@ -133,7 +137,7 @@
 
     .score-row {
       align-items: center;
-      background: var(--white);
+      background: var(--neutral-row);
       border: var(--border);
       box-shadow: 4px 4px 0 var(--ink);
       display: grid;
@@ -143,8 +147,6 @@
       padding: 10px 12px;
     }
 
-    .score-row:nth-child(3n + 2) { background: #fff3a0; }
-    .score-row:nth-child(3n + 3) { background: var(--coral); }
     .score-rank { font: 600 16px 'DM Mono', monospace; }
     .score-name { font-family: 'Arial Black', Impact, sans-serif; font-size: 17px; letter-spacing: -.06em; line-height: .95; text-transform: uppercase; }
     .score-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-top: 5px; text-transform: uppercase; }
@@ -159,7 +161,6 @@
     .comparison-stage.dual { grid-template-columns: 1fr 1fr; }
 
     .prediction-card { background: var(--white); border: var(--border); box-shadow: 5px 5px 0 var(--ink); min-width: 0; padding: 13px; }
-    .prediction-card:nth-child(2) { background: #fff3a0; }
     .prediction-card-head { align-items: start; border-bottom: var(--border); display: flex; gap: 10px; justify-content: space-between; margin-bottom: 10px; padding-bottom: 12px; }
     .prediction-card-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
     .prediction-card h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(21px, 2.5vw, 29px); letter-spacing: -.08em; line-height: .86; margin: 0; text-transform: uppercase; }
@@ -169,10 +170,11 @@
     .card-score strong.pending { font: 500 10px 'DM Mono', monospace; letter-spacing: 0; line-height: 1; }
 
     .prediction-list { display: grid; gap: 6px; }
-    .prediction-row { align-items: center; background: var(--white); border: 2px solid var(--ink); display: grid; gap: 5px; grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; min-height: 43px; padding: 4px 6px; }
-    .prediction-row:nth-child(4n + 2) { background: #fff3a0; }
-    .prediction-row:nth-child(4n + 3) { background: var(--coral); }
-    .prediction-row:nth-child(4n) { background: var(--blue); }
+    .prediction-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 5px; grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; min-height: 43px; padding: 4px 6px; }
+    .prediction-row.accuracy-right { background: var(--accuracy-right); }
+    .prediction-row.accuracy-close { background: var(--accuracy-close); }
+    .prediction-row.accuracy-off { background: var(--accuracy-off); }
+    .prediction-row.accuracy-far { background: var(--accuracy-far); }
     .prediction-rank { font: 500 9px 'DM Mono', monospace; }
     .team-crest { align-items: center; background: var(--white); border: 2px solid var(--ink); display: flex; height: 30px; justify-content: center; overflow: hidden; padding: 3px; width: 30px; }
     .team-crest img { display: block; height: 100%; object-fit: contain; width: 100%; }
@@ -181,13 +183,22 @@
     .prediction-pick, .prediction-actual { font: 500 8px 'DM Mono', monospace; text-align: center; text-transform: uppercase; }
     .prediction-pick b, .prediction-actual b { display: block; font: 700 13px 'Space Grotesk', sans-serif; line-height: 1; }
     .prediction-miss { border: 2px solid var(--ink); font: 700 10px 'DM Mono', monospace; padding: 3px 2px; text-align: center; }
-    .prediction-miss.perfect { background: var(--lime); }
+    .prediction-miss.accuracy-right { background: var(--accuracy-right); }
+    .prediction-miss.accuracy-close { background: var(--accuracy-close); }
+    .prediction-miss.accuracy-off { background: var(--accuracy-off); }
+    .prediction-miss.accuracy-far { background: var(--accuracy-far); }
+
+    .accuracy-key { align-items: center; display: flex; flex-wrap: wrap; font: 500 9px 'DM Mono', monospace; gap: 8px 13px; margin-top: 18px; text-transform: uppercase; }
+    .accuracy-key span { align-items: center; display: inline-flex; gap: 5px; }
+    .accuracy-swatch { border: 2px solid var(--ink); display: inline-block; height: 12px; width: 12px; }
+    .accuracy-swatch.accuracy-right { background: var(--accuracy-right); }
+    .accuracy-swatch.accuracy-close { background: var(--accuracy-close); }
+    .accuracy-swatch.accuracy-off { background: var(--accuracy-off); }
+    .accuracy-swatch.accuracy-far { background: var(--accuracy-far); }
 
     .full-panel { margin-top: 24px; }
     .current-table { display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: 18px; }
-    .current-row { align-items: center; background: var(--white); border: 2px solid var(--ink); display: grid; gap: 6px; grid-template-columns: 22px minmax(0, 1fr) auto; min-height: 45px; padding: 6px 8px; }
-    .current-row:nth-child(3n + 2) { background: #fff3a0; }
-    .current-row:nth-child(3n + 3) { background: var(--coral); }
+    .current-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 6px; grid-template-columns: 22px minmax(0, 1fr) auto; min-height: 45px; padding: 6px 8px; }
     .current-position { font: 500 9px 'DM Mono', monospace; }
     .current-team { font-size: 11px; font-weight: 700; line-height: .95; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
     .current-points { font: 700 11px 'DM Mono', monospace; }
@@ -212,7 +223,6 @@
       .season-chip { font-size: 9px; padding: 8px 9px; }
       .hero { display: block; padding: 30px 22px 28px; }
       .hero::after { height: 76px; right: -28px; top: -26px; width: 76px; }
-      .hero-copy { font-size: 15px; }
       .hero-status { margin: 28px 7px 5px 0; }
       .panel { padding: 18px 13px; }
       .panel-heading { align-items: start; display: block; }
@@ -264,6 +274,12 @@
         <div class="compare-controls">
           <label class="select-label" for="person-a">Prediction A<select id="person-a"></select></label>
           <label class="select-label" for="person-b">Prediction B<select id="person-b"><option value="">No comparison</option></select></label>
+        </div>
+        <div class="accuracy-key" aria-label="Prediction accuracy key">
+          <span><i class="accuracy-swatch accuracy-right"></i>Right</span>
+          <span><i class="accuracy-swatch accuracy-close"></i>Close</span>
+          <span><i class="accuracy-swatch accuracy-off"></i>Off</span>
+          <span><i class="accuracy-swatch accuracy-far"></i>Far off</span>
         </div>
         <div class="comparison-stage" id="comparison-stage"></div>
         <div id="compare-empty" class="state empty" hidden>No predictions are available yet.</div>
@@ -409,7 +425,16 @@
         const actual = standings.get(normaliseTeam(team));
         const miss = actual ? Math.abs(predicted - actual) : null;
         const missLabel = miss === null ? '—' : miss === 0 ? '✓' : miss;
-        return `<div class="prediction-row"><span class="prediction-rank">${String(predicted).padStart(2, '0')}</span>${renderCrest(team)}<span class="prediction-team" title="${escapeHtml(team)}">${escapeHtml(team)}</span><span class="prediction-pick">pick<b>${predicted}</b></span><span class="prediction-actual">now<b>${actual || '—'}</b></span><span class="prediction-miss ${miss === 0 ? 'perfect' : ''}">${missLabel}</span></div>`;
+        const accuracy = miss === null
+          ? { className: 'accuracy-unknown', label: 'Current position unavailable' }
+          : miss === 0
+            ? { className: 'accuracy-right', label: 'Right on the mark' }
+            : miss <= 2
+              ? { className: 'accuracy-close', label: `${miss} place${miss === 1 ? '' : 's'} off — close` }
+              : miss <= 5
+                ? { className: 'accuracy-off', label: `${miss} places off` }
+                : { className: 'accuracy-far', label: `${miss} places off — far off` };
+        return `<div class="prediction-row ${accuracy.className}"><span class="prediction-rank">${String(predicted).padStart(2, '0')}</span>${renderCrest(team)}<span class="prediction-team" title="${escapeHtml(team)}">${escapeHtml(team)}</span><span class="prediction-pick">pick<b>${predicted}</b></span><span class="prediction-actual">now<b>${actual || '—'}</b></span><span class="prediction-miss ${accuracy.className}" title="${escapeHtml(accuracy.label)}" aria-label="${escapeHtml(accuracy.label)}">${missLabel}</span></div>`;
       }).join('');
       const score = scoreFor(name);
       return `<article class="prediction-card"><div class="prediction-card-head"><div><span class="prediction-card-label">Prediction</span><h3>${escapeHtml(name)}</h3></div><div class="card-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>${prediction ? `<div class="prediction-list">${rows}</div>` : '<div class="state empty">No prediction found for this person.</div>'}</article>`;
