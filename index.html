@@ -107,8 +107,6 @@
 
     h1 em { color: var(--lime); font-style: normal; text-shadow: 4px 4px 0 var(--ink); }
 
-    .hero-copy { font-size: 17px; font-weight: 600; line-height: 1.45; margin: 25px 0 0; max-width: 540px; }
-
     .hero-status {
       background: var(--lime);
       border: 4px solid var(--ink);
@@ -157,8 +155,6 @@
     .select-label { display: grid; font: 500 10px 'DM Mono', monospace; gap: 7px; letter-spacing: .08em; text-transform: uppercase; }
     select { background: var(--white); border: var(--border); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 700; min-height: 49px; padding: 9px 11px; width: 100%; }
     select:focus { outline: 3px solid var(--coral); outline-offset: 2px; }
-    .compare-note { font: 500 10px 'DM Mono', monospace; line-height: 1.4; margin: 17px 0 0; text-transform: uppercase; }
-
     .comparison-stage { display: grid; gap: 16px; margin-top: 21px; }
     .comparison-stage.dual { grid-template-columns: 1fr 1fr; }
 
@@ -239,7 +235,6 @@
       <div>
         <p class="kicker">Premier League prediction game · results room</p>
         <h1>The table is <em>talking.</em></h1>
-        <p class="hero-copy">The entries are locked. See everyone’s score, check the latest table, and put any two predictions head to head.</p>
       </div>
       <div class="hero-status">
         <span class="hero-status-label">Last score check</span>
@@ -270,7 +265,6 @@
           <label class="select-label" for="person-a">Prediction A<select id="person-a"></select></label>
           <label class="select-label" for="person-b">Prediction B<select id="person-b"><option value="">No comparison</option></select></label>
         </div>
-        <p class="compare-note">Choose one person for a solo view or two for a side-by-side table. “Miss” shows the distance from the current finish.</p>
         <div class="comparison-stage" id="comparison-stage"></div>
         <div id="compare-empty" class="state empty" hidden>No predictions are available yet.</div>
       </section>
