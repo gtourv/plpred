@@ -25,6 +25,8 @@ A static Premier League prediction results dashboard with Google Sheets as the d
 5. Copy the web app URL. The public dashboard uses the URL with `?view=public`; the private score runner uses the same URL with the gateway token.
 6. Make sure the spreadsheet has these tabs: `Predictions`, `Current_Standings`, and `Leaderboard`.
 
+When the Apps Script code changes, use **Deploy → Manage deployments → Edit → New version → Deploy**. The existing `/exec` URL stays the same.
+
 The public dashboard receives only names, predictions, scores, standings, and update timestamps. Email addresses are omitted from the public response. The gateway token, football-data.org key, and CallMeBot key never go to the browser. The public submission endpoint remains in the bridge for historical compatibility, but the GitHub Pages entry point is now read-only.
 
 ## Local test of the monthly runner
