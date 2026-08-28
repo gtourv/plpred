@@ -21,6 +21,9 @@
       --accuracy-close: #d9f1ff;
       --accuracy-off: #e6ddff;
       --accuracy-far: #cbb8ff;
+      --similarity-high: #d9f7d0;
+      --similarity-mid: #d9f1ff;
+      --similarity-low: #e6ddff;
       --shadow: 8px 8px 0 var(--ink);
       --border: 3px solid var(--ink);
     }
@@ -197,6 +200,28 @@
     .accuracy-swatch.accuracy-off { background: var(--accuracy-off); }
     .accuracy-swatch.accuracy-far { background: var(--accuracy-far); }
 
+    .similarity-panel { margin-top: 24px; }
+    .insight-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, 1fr); margin-top: 20px; }
+    .insight-card { background: var(--neutral-row); border: var(--border); box-shadow: 4px 4px 0 var(--ink); min-width: 0; padding: 13px; }
+    .insight-label { display: block; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .insight-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(20px, 3vw, 31px); letter-spacing: -.08em; line-height: .9; margin-top: 10px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .insight-detail { display: block; font: 500 9px 'DM Mono', monospace; line-height: 1.35; margin-top: 9px; text-transform: uppercase; }
+    .pairwise-heading { align-items: end; border-bottom: var(--border); display: flex; gap: 16px; justify-content: space-between; margin-top: 29px; padding-bottom: 12px; }
+    .pairwise-heading h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: 20px; letter-spacing: -.07em; line-height: .9; margin: 0; text-transform: uppercase; }
+    .pairwise-heading p { font: 500 9px 'DM Mono', monospace; margin: 0; text-align: right; text-transform: uppercase; }
+    .pairwise-wrap { margin-top: 13px; max-height: 520px; overflow: auto; }
+    .pairwise-list { display: grid; gap: 7px; min-width: 530px; }
+    .pairwise-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) 88px 85px 78px; min-height: 44px; padding: 6px 9px; }
+    .pairwise-row.pairwise-head { background: var(--ink); border-color: var(--ink); color: var(--white); font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; min-height: 31px; text-transform: uppercase; }
+    .pairwise-head { position: sticky; top: 0; z-index: 1; }
+    .pairwise-names { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pairwise-names strong { font-size: 12px; }
+    .pairwise-stat { font: 500 10px 'DM Mono', monospace; text-align: center; }
+    .similarity-score { border: 2px solid var(--ink); font: 700 12px 'DM Mono', monospace; padding: 5px 4px; text-align: center; }
+    .similarity-score.high { background: var(--similarity-high); }
+    .similarity-score.mid { background: var(--similarity-mid); }
+    .similarity-score.low { background: var(--similarity-low); }
+
     .full-panel { margin-top: 24px; }
     .current-table { display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: 18px; }
     .current-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 6px; grid-template-columns: 22px minmax(0, 1fr) auto; min-height: 45px; padding: 6px 8px; }
@@ -217,6 +242,7 @@
     @media (max-width: 900px) {
       .dashboard-grid { grid-template-columns: 1fr; }
       .current-table { grid-template-columns: repeat(4, 1fr); }
+      .insight-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
     @media (max-width: 680px) {
@@ -232,6 +258,9 @@
       .comparison-stage.dual { grid-template-columns: 1fr; }
       .current-table { grid-template-columns: repeat(2, 1fr); }
       .prediction-row { grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; }
+      .insight-grid { grid-template-columns: 1fr 1fr; }
+      .pairwise-heading { align-items: start; display: block; }
+      .pairwise-heading p { margin-top: 8px; text-align: left; }
     }
   </style>
 </head>
@@ -287,6 +316,22 @@
       </section>
     </div>
 
+    <section class="panel similarity-panel" id="similarity-panel" aria-labelledby="similarity-title" hidden>
+      <div class="panel-heading">
+        <div><p class="kicker">Across the room</p><h2 id="similarity-title">Prediction patterns</h2></div>
+        <p id="pairwise-meta">Waiting for predictions</p>
+      </div>
+      <div class="insight-grid" id="insight-grid"></div>
+      <div class="pairwise-heading">
+        <h3>Every pair</h3>
+        <p>Rank similarity · highest to lowest</p>
+      </div>
+      <div class="pairwise-wrap">
+        <div class="pairwise-list" id="pairwise-list"></div>
+      </div>
+      <div id="similarity-empty" class="state empty" hidden>Pairwise patterns will appear when at least two complete predictions are available.</div>
+    </section>
+
     <section class="panel full-panel" id="current-panel" aria-labelledby="current-title" hidden>
       <div class="panel-heading">
         <div><p class="kicker">Reality check</p><h2 id="current-title">Current table</h2></div>
@@ -334,6 +379,11 @@
       personB: document.getElementById('person-b'),
       comparison: document.getElementById('comparison-stage'),
       compareEmpty: document.getElementById('compare-empty'),
+      similarityPanel: document.getElementById('similarity-panel'),
+      insightGrid: document.getElementById('insight-grid'),
+      pairwiseMeta: document.getElementById('pairwise-meta'),
+      pairwiseList: document.getElementById('pairwise-list'),
+      similarityEmpty: document.getElementById('similarity-empty'),
       currentPanel: document.getElementById('current-panel'),
       currentTable: document.getElementById('current-table'),
       standingsMeta: document.getElementById('standings-meta'),
@@ -377,6 +427,110 @@
     }
 
     function predictionFor(name) { return (state.data?.predictions || []).find((entry) => entry.name === name); }
+
+    const MAX_PAIRWISE_DISTANCE = 200;
+
+    function completePredictions() {
+      const seen = new Set();
+      return (state.data?.predictions || []).filter((entry) => {
+        if (!entry.name || !Array.isArray(entry.rankings) || entry.rankings.length !== 20 || seen.has(entry.name)) return false;
+        seen.add(entry.name);
+        return true;
+      });
+    }
+
+    function positionsFor(rankings) {
+      return new Map(rankings.map((team, index) => [normaliseTeam(team), index + 1]));
+    }
+
+    function comparePredictions(first, second) {
+      const firstPositions = positionsFor(first.rankings);
+      const secondPositions = positionsFor(second.rankings);
+      const sharedTeams = [...firstPositions.keys()].filter((team) => secondPositions.has(team));
+      let distance = 0;
+      let exactSlots = 0;
+      sharedTeams.forEach((team) => {
+        const firstPosition = firstPositions.get(team);
+        const secondPosition = secondPositions.get(team);
+        distance += Math.abs(firstPosition - secondPosition);
+        if (firstPosition === secondPosition) exactSlots += 1;
+      });
+      const firstTopFour = new Set([...firstPositions].filter(([, position]) => position <= 4).map(([team]) => team));
+      const secondTopFour = new Set([...secondPositions].filter(([, position]) => position <= 4).map(([team]) => team));
+      const topFour = [...firstTopFour].filter((team) => secondTopFour.has(team)).length;
+      return {
+        firstName: first.name,
+        secondName: second.name,
+        distance,
+        similarity: Math.max(0, Math.round((1 - distance / MAX_PAIRWISE_DISTANCE) * 100)),
+        exactSlots,
+        topFour,
+      };
+    }
+
+    function pairwiseComparisons(entries) {
+      const pairs = [];
+      for (let firstIndex = 0; firstIndex < entries.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < entries.length; secondIndex += 1) {
+          pairs.push(comparePredictions(entries[firstIndex], entries[secondIndex]));
+        }
+      }
+      return pairs.sort((first, second) => second.similarity - first.similarity || first.distance - second.distance || first.firstName.localeCompare(second.firstName));
+    }
+
+    function consensusLeader(entries) {
+      if (entries.length < 2) return null;
+      return entries.map((entry, index) => {
+        const comparisons = entries.filter((_, otherIndex) => otherIndex !== index).map((other) => comparePredictions(entry, other));
+        const average = Math.round(comparisons.reduce((total, comparison) => total + comparison.similarity, 0) / comparisons.length);
+        return { name: entry.name, average };
+      }).sort((first, second) => second.average - first.average || first.name.localeCompare(second.name))[0];
+    }
+
+    function mostContestedTeam(entries) {
+      const positions = new Map();
+      entries.forEach((entry) => entry.rankings.forEach((team, index) => {
+        const key = normaliseTeam(team);
+        const knownClub = clubs.find((club) => normaliseTeam(club.name) === key);
+        const record = positions.get(key) || { name: knownClub?.name || team, picks: [] };
+        record.picks.push(index + 1);
+        positions.set(key, record);
+      }));
+      return [...positions.values()].map((record) => ({
+        ...record,
+        spread: Math.max(...record.picks) - Math.min(...record.picks),
+        picks: record.picks.sort((first, second) => first - second),
+      })).sort((first, second) => second.spread - first.spread || first.name.localeCompare(second.name))[0] || null;
+    }
+
+    function similarityBand(similarity) {
+      if (similarity >= 90) return 'high';
+      if (similarity >= 75) return 'mid';
+      return 'low';
+    }
+
+    function insightCard(label, value, detail) {
+      return `<div class="insight-card"><span class="insight-label">${escapeHtml(label)}</span><strong class="insight-value" title="${escapeHtml(value)}">${escapeHtml(value)}</strong><span class="insight-detail">${escapeHtml(detail)}</span></div>`;
+    }
+
+    function renderSimilarity() {
+      const entries = completePredictions();
+      const pairs = pairwiseComparisons(entries);
+      const closest = pairs[0];
+      const widest = pairs[pairs.length - 1];
+      const consensus = consensusLeader(entries);
+      const contested = mostContestedTeam(entries);
+      elements.similarityPanel.hidden = false;
+      elements.pairwiseMeta.textContent = `${entries.length} entrant${entries.length === 1 ? '' : 's'} · ${pairs.length} pairing${pairs.length === 1 ? '' : 's'}`;
+      elements.insightGrid.innerHTML = [
+        insightCard('Closest pair', closest ? `${closest.firstName} ↔ ${closest.secondName}` : 'Not yet', closest ? `${closest.similarity}% alike · ${closest.exactSlots}/20 exact slots` : 'Need two complete predictions'),
+        insightCard('Widest pair', widest ? `${widest.firstName} ↔ ${widest.secondName}` : 'Not yet', widest ? `${widest.similarity}% alike · ${widest.distance} places apart` : 'Need two complete predictions'),
+        insightCard('Most consensus', consensus ? consensus.name : 'Not yet', consensus ? `${consensus.average}% average similarity to the group` : 'Need two complete predictions'),
+        insightCard('Most spread team', contested ? contested.name : 'Not yet', contested ? `${contested.spread} places between picks · ${contested.picks.join(', ')}` : 'Need predictions'),
+      ].join('');
+      elements.similarityEmpty.hidden = pairs.length > 0;
+      elements.pairwiseList.innerHTML = pairs.length ? `<div class="pairwise-row pairwise-head" role="row"><span>Pair</span><span>Alike</span><span>Exact slots</span><span>Top four</span></div>${pairs.map((pair) => `<div class="pairwise-row" role="row"><span class="pairwise-names" title="${escapeHtml(`${pair.firstName} versus ${pair.secondName}`)}"><strong>${escapeHtml(pair.firstName)}</strong> <span>↔</span> <strong>${escapeHtml(pair.secondName)}</strong></span><strong class="similarity-score ${similarityBand(pair.similarity)}" title="${pair.distance} total places apart">${pair.similarity}%</strong><span class="pairwise-stat">${pair.exactSlots}/20</span><span class="pairwise-stat">${pair.topFour}/4</span></div>`).join('')}` : '';
+    }
 
     function loadPublicData() {
       return new Promise((resolve, reject) => {
@@ -463,6 +617,7 @@
       renderSelectors();
       renderScores();
       renderComparison();
+      renderSimilarity();
       renderCurrentTable();
       elements.dashboard.hidden = false;
       elements.loading.hidden = true;
@@ -484,6 +639,7 @@
       } catch (error) {
         elements.loading.hidden = true;
         elements.dashboard.hidden = true;
+        elements.similarityPanel.hidden = true;
         elements.currentPanel.hidden = true;
         elements.error.textContent = `${error.message} Make sure the Apps Script bridge has been redeployed with the public results view.`;
         elements.error.hidden = false;
