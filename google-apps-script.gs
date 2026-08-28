@@ -22,6 +22,11 @@ function doPost(e) {
 
 function doGet(e) {
   try {
+    if (e && e.parameter && e.parameter.view === 'public') {
+      const publicSnapshot = readPublicSnapshot_();
+      return e.parameter.callback ? jsonp_(publicSnapshot, e.parameter.callback) : json_(publicSnapshot);
+    }
+
     requireGatewayToken_(e && e.parameter ? e.parameter.token : '');
     const spreadsheet = openSpreadsheet_();
 
@@ -34,6 +39,100 @@ function doGet(e) {
   } catch (error) {
     return json_({ ok: false, error: error.message }, 400);
   }
+}
+
+function readPublicSnapshot_() {
+  const spreadsheet = openSpreadsheet_();
+  const currentStandings = readPublicStandings_(spreadsheet.getSheetByName(CURRENT_STANDINGS_TAB));
+  const leaderboard = readPublicLeaderboard_(spreadsheet.getSheetByName(LEADERBOARD_TAB));
+  const predictions = readPublicPredictions_(spreadsheet.getSheetByName(PREDICTIONS_TAB));
+  return {
+    ok: true,
+    season: '2026/27',
+    updatedAt: latestUpdatedAt_(currentStandings, leaderboard),
+    currentStandings: currentStandings,
+    leaderboard: leaderboard,
+    predictions: predictions,
+  };
+}
+
+function readPublicPredictions_(sheet) {
+  return readPredictions_(sheet).map(function (entry) {
+    return {
+      timestamp: entry.timestamp,
+      name: entry.name,
+      season: entry.season,
+      rankings: entry.rankings,
+    };
+  });
+}
+
+function readPublicStandings_(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (header) { return String(header).trim().toLowerCase(); });
+  const positionIndex = findHeader_(headers, ['position', 'pos']);
+  const teamIndex = findHeader_(headers, ['team', 'team name', 'club']);
+  const updatedAtIndex = findHeader_(headers, ['updated at', 'last updated', 'timestamp']);
+  const playedIndex = findHeader_(headers, ['played', 'games played']);
+  const pointsIndex = findHeader_(headers, ['points', 'pts']);
+
+  return values.slice(1).filter(function (row) {
+    return row.some(function (value) { return value !== ''; });
+  }).map(function (row, index) {
+    return {
+      updatedAt: updatedAtIndex >= 0 ? String(row[updatedAtIndex] || '') : '',
+      position: positionIndex >= 0 ? Number(row[positionIndex]) || index + 1 : index + 1,
+      team: teamIndex >= 0 ? String(row[teamIndex] || '').trim() : '',
+      played: playedIndex >= 0 ? Number(row[playedIndex]) || 0 : 0,
+      points: pointsIndex >= 0 ? Number(row[pointsIndex]) || 0 : 0,
+    };
+  }).filter(function (row) {
+    return row.team;
+  });
+}
+
+function readPublicLeaderboard_(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (header) { return String(header).trim().toLowerCase(); });
+  const rankIndex = findHeader_(headers, ['rank', 'place']);
+  const nameIndex = findHeader_(headers, ['name', 'participant name', 'predictor']);
+  const scoreIndex = findHeader_(headers, ['score', 'total score', 'points']);
+  const updatedAtIndex = findHeader_(headers, ['updated at', 'last updated', 'timestamp']);
+  const seasonIndex = findHeader_(headers, ['season']);
+  const biggestMissIndex = findHeader_(headers, ['biggest miss', 'biggest error']);
+  const bestCallIndex = findHeader_(headers, ['best call']);
+
+  return values.slice(1).filter(function (row) {
+    return row.some(function (value) { return value !== ''; });
+  }).map(function (row, index) {
+    return {
+      rank: rankIndex >= 0 ? Number(row[rankIndex]) || index + 1 : index + 1,
+      name: nameIndex >= 0 ? String(row[nameIndex] || '').trim() : '',
+      score: scoreIndex >= 0 && row[scoreIndex] !== '' ? Number(row[scoreIndex]) : null,
+      updatedAt: updatedAtIndex >= 0 ? String(row[updatedAtIndex] || '') : '',
+      season: seasonIndex >= 0 ? String(row[seasonIndex] || '2026/27').trim() : '2026/27',
+      biggestMiss: biggestMissIndex >= 0 ? String(row[biggestMissIndex] || '').trim() : '',
+      bestCall: bestCallIndex >= 0 ? String(row[bestCallIndex] || '').trim() : '',
+    };
+  }).filter(function (row) {
+    return row.name;
+  }).sort(function (a, b) {
+    return a.rank - b.rank;
+  });
+}
+
+function latestUpdatedAt_(standings, leaderboard) {
+  const values = standings.concat(leaderboard).map(function (row) {
+    return String(row.updatedAt || '').trim();
+  }).filter(function (value) {
+    return value;
+  });
+  if (!values.length) return '';
+  return values.sort(function (a, b) {
+    return new Date(b).getTime() - new Date(a).getTime();
+  })[0];
 }
 
 function savePrediction_(payload) {
@@ -179,4 +278,12 @@ function requireGatewayToken_(provided) {
 
 function json_(body) {
   return ContentService.createTextOutput(JSON.stringify(body)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonp_(body, callback) {
+  if (!/^[A-Za-z_$][0-9A-Za-z_$]*(\.[A-Za-z_$][0-9A-Za-z_$]*)*$/.test(callback)) {
+    throw new Error('Invalid callback.');
+  }
+  return ContentService.createTextOutput(callback + '(' + JSON.stringify(body) + ');')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }

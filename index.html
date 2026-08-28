@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Final Whistle — Premier League prediction game</title>
-  <meta name="description" content="Drag the Premier League clubs into your predicted final table.">
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <title>Final Whistle — Prediction leaderboard</title>
+  <meta name="description" content="See the Premier League prediction leaderboard and compare any two predictions side by side.">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
@@ -16,6 +15,7 @@
       --lime: #c4ff3d;
       --coral: #ff6b5e;
       --yellow: #ffe43b;
+      --blue: #b8f4ff;
       --white: #fffdf8;
       --shadow: 8px 8px 0 var(--ink);
       --border: 3px solid var(--ink);
@@ -24,34 +24,28 @@
     * { box-sizing: border-box; }
 
     body {
-      margin: 0;
-      color: var(--ink);
       background: var(--paper);
+      color: var(--ink);
       font-family: 'Space Grotesk', Arial, sans-serif;
+      margin: 0;
     }
 
     body::before {
-      position: fixed;
-      z-index: -1;
-      inset: 0;
       background-image: radial-gradient(var(--ink) 1px, transparent 1px);
       background-size: 18px 18px;
       content: '';
+      inset: 0;
       opacity: .08;
       pointer-events: none;
+      position: fixed;
+      z-index: -1;
     }
 
-    button, input { font: inherit; }
-    a { color: inherit; }
+    button, select { font: inherit; }
 
-    .shell { max-width: 1180px; margin: 0 auto; padding: 18px 24px 74px; }
+    .shell { margin: 0 auto; max-width: 1240px; padding: 18px 24px 72px; }
 
-    .topbar {
-      align-items: center;
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 22px;
-    }
+    .topbar { align-items: center; display: flex; justify-content: space-between; margin-bottom: 22px; }
 
     .brand {
       background: var(--ink);
@@ -67,307 +61,170 @@
 
     .brand b { color: var(--coral); }
 
-    .season-chip {
+    .status-pill {
+      align-items: center;
       background: var(--white);
       border: var(--border);
       box-shadow: 4px 4px 0 var(--ink);
-      font: 500 11px 'DM Mono', monospace;
+      display: flex;
+      font: 500 10px 'DM Mono', monospace;
+      gap: 8px;
       padding: 10px 13px;
       text-transform: uppercase;
     }
 
+    .status-pill::before { background: var(--coral); border: 2px solid var(--ink); border-radius: 50%; content: ''; height: 9px; width: 9px; }
+    .status-pill.ready::before { background: var(--lime); }
+    .status-pill.error::before { background: var(--coral); }
+
     .hero {
+      align-items: end;
       background: var(--purple);
       border: 4px solid var(--ink);
       box-shadow: 10px 10px 0 var(--ink);
-      display: block;
+      display: grid;
+      gap: 34px;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, .65fr);
       margin-bottom: 24px;
       overflow: hidden;
       padding: clamp(30px, 5vw, 58px);
       position: relative;
     }
 
-    .hero::after {
-      background: var(--lime);
-      border: 4px solid var(--ink);
-      border-radius: 50%;
-      content: '';
-      height: 120px;
-      position: absolute;
-      right: -32px;
-      top: -36px;
-      width: 120px;
-    }
+    .hero::after { background: var(--lime); border: 4px solid var(--ink); border-radius: 50%; content: ''; height: 118px; position: absolute; right: -30px; top: -34px; width: 118px; }
 
-    .kicker {
-      font: 500 11px 'DM Mono', monospace;
-      letter-spacing: .1em;
-      margin: 0 0 18px;
-      text-transform: uppercase;
-    }
+    .kicker { font: 500 11px 'DM Mono', monospace; letter-spacing: .1em; margin: 0 0 18px; text-transform: uppercase; }
 
     h1 {
       font-family: 'Arial Black', Impact, 'Space Grotesk', sans-serif;
-      font-size: clamp(54px, 9vw, 112px);
-      letter-spacing: -.09em;
+      font-size: clamp(56px, 9vw, 118px);
+      letter-spacing: -.1em;
       line-height: .82;
       margin: 0;
-      max-width: 760px;
+      max-width: 770px;
       text-transform: uppercase;
     }
 
-    .hero h1 em {
-      color: var(--lime);
-      font-style: normal;
-      text-shadow: 4px 4px 0 var(--ink);
-    }
+    h1 em { color: var(--lime); font-style: normal; text-shadow: 4px 4px 0 var(--ink); }
 
-    .hero-copy {
-      font-size: 17px;
-      font-weight: 600;
-      line-height: 1.45;
-      margin: 26px 0 0;
-      max-width: 530px;
-    }
+    .hero-copy { font-size: 17px; font-weight: 600; line-height: 1.45; margin: 25px 0 0; max-width: 540px; }
 
-    .card {
+    .hero-status {
       background: var(--lime);
       border: 4px solid var(--ink);
-      box-shadow: var(--shadow);
-      padding: clamp(20px, 4vw, 34px);
+      box-shadow: 7px 7px 0 var(--ink);
+      padding: 22px;
+      transform: rotate(2deg);
+      z-index: 1;
     }
 
-    .form-head {
-      align-items: end;
-      border-bottom: var(--border);
-      display: flex;
-      gap: 20px;
-      justify-content: space-between;
-      padding-bottom: 22px;
-    }
+    .hero-status-label { display: block; font: 500 10px 'DM Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
+    .hero-status strong { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(31px, 4vw, 50px); letter-spacing: -.09em; line-height: .9; margin-top: 13px; text-transform: uppercase; }
+    .hero-status p { font-size: 14px; font-weight: 700; line-height: 1.3; margin: 15px 0 0; text-transform: uppercase; }
 
-    .form-head .kicker { margin-bottom: 10px; }
+    .dashboard-grid { align-items: start; display: grid; gap: 24px; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
 
-    .form-head h2 {
-      font-family: 'Arial Black', Impact, sans-serif;
-      font-size: clamp(28px, 4vw, 42px);
-      letter-spacing: -.08em;
-      line-height: .9;
-      margin: 0;
-      text-transform: uppercase;
-    }
+    .panel { background: var(--white); border: 4px solid var(--ink); box-shadow: var(--shadow); padding: clamp(18px, 3vw, 28px); }
+    .panel.lime { background: var(--lime); }
 
-    .form-head p:last-child {
-      background: var(--coral);
-      border: var(--border);
-      box-shadow: 4px 4px 0 var(--ink);
-      font: 500 10px 'DM Mono', monospace;
-      margin: 0 4px 4px 0;
-      padding: 10px 12px;
-      text-align: right;
-      text-transform: uppercase;
-    }
+    .panel-heading { align-items: end; border-bottom: var(--border); display: flex; gap: 16px; justify-content: space-between; padding-bottom: 17px; }
+    .panel-heading h2 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.08em; line-height: .9; margin: 0; text-transform: uppercase; }
+    .panel-heading p { font: 500 10px 'DM Mono', monospace; margin: 0 0 2px; text-align: right; text-transform: uppercase; }
 
-    .fields {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: 1fr 1fr;
-      padding: 26px 0 12px;
-    }
+    .score-list { display: grid; gap: 10px; margin-top: 20px; }
 
-    .field label {
-      display: block;
-      font: 500 10px 'DM Mono', monospace;
-      letter-spacing: .1em;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-    }
-
-    .field small { font-family: 'DM Mono', monospace; letter-spacing: 0; text-transform: none; }
-
-    .field input {
+    .score-row {
+      align-items: center;
       background: var(--white);
       border: var(--border);
       box-shadow: 4px 4px 0 var(--ink);
-      color: var(--ink);
-      display: block;
-      font-size: 16px;
-      font-weight: 600;
-      outline: none;
-      padding: 14px 13px;
-      width: 100%;
-    }
-
-    .field input:focus { box-shadow: 6px 6px 0 var(--ink); transform: translate(-2px, -2px); }
-
-    .list-head {
-      align-items: center;
-      display: flex;
+      display: grid;
       gap: 12px;
-      justify-content: space-between;
-      margin: 26px 0 14px;
+      grid-template-columns: 39px minmax(0, 1fr) auto;
+      min-height: 67px;
+      padding: 10px 12px;
     }
 
-    .list-head h3 {
-      font-family: 'Arial Black', Impact, sans-serif;
-      font-size: 18px;
-      letter-spacing: -.06em;
-      margin: 0;
-      text-transform: uppercase;
+    .score-row:nth-child(3n + 2) { background: #fff3a0; }
+    .score-row:nth-child(3n + 3) { background: var(--coral); }
+    .score-rank { font: 600 16px 'DM Mono', monospace; }
+    .score-name { font-family: 'Arial Black', Impact, sans-serif; font-size: 17px; letter-spacing: -.06em; line-height: .95; text-transform: uppercase; }
+    .score-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-top: 5px; text-transform: uppercase; }
+    .score-value { font-family: 'Arial Black', Impact, sans-serif; font-size: 31px; letter-spacing: -.1em; line-height: .8; text-align: right; }
+    .score-value.pending { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0; line-height: 1; }
+
+    .compare-controls { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 20px; }
+    .select-label { display: grid; font: 500 10px 'DM Mono', monospace; gap: 7px; letter-spacing: .08em; text-transform: uppercase; }
+    select { background: var(--white); border: var(--border); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 700; min-height: 49px; padding: 9px 11px; width: 100%; }
+    select:focus { outline: 3px solid var(--coral); outline-offset: 2px; }
+    .compare-note { font: 500 10px 'DM Mono', monospace; line-height: 1.4; margin: 17px 0 0; text-transform: uppercase; }
+
+    .comparison-stage { display: grid; gap: 16px; margin-top: 21px; }
+    .comparison-stage.dual { grid-template-columns: 1fr 1fr; }
+
+    .prediction-card { background: var(--white); border: var(--border); box-shadow: 5px 5px 0 var(--ink); min-width: 0; padding: 13px; }
+    .prediction-card:nth-child(2) { background: #fff3a0; }
+    .prediction-card-head { align-items: start; border-bottom: var(--border); display: flex; gap: 10px; justify-content: space-between; margin-bottom: 10px; padding-bottom: 12px; }
+    .prediction-card-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+    .prediction-card h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(21px, 2.5vw, 29px); letter-spacing: -.08em; line-height: .86; margin: 0; text-transform: uppercase; }
+    .card-score { background: var(--ink); color: var(--lime); min-width: 58px; padding: 8px 7px; text-align: center; }
+    .card-score span { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; }
+    .card-score strong { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: 28px; letter-spacing: -.1em; line-height: .8; margin-top: 5px; }
+    .card-score strong.pending { font: 500 10px 'DM Mono', monospace; letter-spacing: 0; line-height: 1; }
+
+    .prediction-list { display: grid; gap: 6px; }
+    .prediction-row { align-items: center; background: var(--white); border: 2px solid var(--ink); display: grid; gap: 5px; grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; min-height: 43px; padding: 4px 6px; }
+    .prediction-row:nth-child(4n + 2) { background: #fff3a0; }
+    .prediction-row:nth-child(4n + 3) { background: var(--coral); }
+    .prediction-row:nth-child(4n) { background: var(--blue); }
+    .prediction-rank { font: 500 9px 'DM Mono', monospace; }
+    .team-crest { align-items: center; background: var(--white); border: 2px solid var(--ink); display: flex; height: 30px; justify-content: center; overflow: hidden; padding: 3px; width: 30px; }
+    .team-crest img { display: block; height: 100%; object-fit: contain; width: 100%; }
+    .crest-fallback { font-size: 8px; font-weight: 700; letter-spacing: -.06em; }
+    .prediction-team { font-size: 12px; font-weight: 700; line-height: .95; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .prediction-pick, .prediction-actual { font: 500 8px 'DM Mono', monospace; text-align: center; text-transform: uppercase; }
+    .prediction-pick b, .prediction-actual b { display: block; font: 700 13px 'Space Grotesk', sans-serif; line-height: 1; }
+    .prediction-miss { border: 2px solid var(--ink); font: 700 10px 'DM Mono', monospace; padding: 3px 2px; text-align: center; }
+    .prediction-miss.perfect { background: var(--lime); }
+
+    .full-panel { margin-top: 24px; }
+    .current-table { display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: 18px; }
+    .current-row { align-items: center; background: var(--white); border: 2px solid var(--ink); display: grid; gap: 6px; grid-template-columns: 22px minmax(0, 1fr) auto; min-height: 45px; padding: 6px 8px; }
+    .current-row:nth-child(3n + 2) { background: #fff3a0; }
+    .current-row:nth-child(3n + 3) { background: var(--coral); }
+    .current-position { font: 500 9px 'DM Mono', monospace; }
+    .current-team { font-size: 11px; font-weight: 700; line-height: .95; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .current-points { font: 700 11px 'DM Mono', monospace; }
+
+    .state { border: var(--border); font-weight: 700; line-height: 1.4; margin-top: 20px; padding: 15px; }
+    .state.loading { background: var(--yellow); }
+    .state.error { background: var(--coral); }
+    .state.empty { background: var(--white); }
+    .state[hidden] { display: none; }
+
+    .refresh-button { background: var(--ink); border: var(--border); box-shadow: 4px 4px 0 var(--coral); color: var(--lime); cursor: pointer; font-family: 'Arial Black', Impact, sans-serif; font-size: 11px; letter-spacing: -.04em; padding: 10px 13px; text-transform: uppercase; }
+    .refresh-button:hover { background: var(--coral); box-shadow: 4px 4px 0 var(--ink); color: var(--ink); }
+    .refresh-button:active { box-shadow: 1px 1px 0 var(--ink); transform: translate(3px, 3px); }
+
+    @media (max-width: 900px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .current-table { grid-template-columns: repeat(4, 1fr); }
     }
 
-    .list-head span {
-      font: 500 10px 'DM Mono', monospace;
-      text-align: right;
-      text-transform: uppercase;
-    }
-
-    #ranking { list-style: none; margin: 0; padding: 0; }
-
-    .club {
-      align-items: center;
-      background: var(--white);
-      border: var(--border);
-      box-shadow: 5px 5px 0 var(--ink);
-      cursor: grab;
-      display: grid;
-      gap: 14px;
-      grid-template-columns: 48px 58px 60px minmax(0, 1fr) auto;
-      margin-bottom: 13px;
-      min-height: 88px;
-      padding: 13px 16px;
-      touch-action: none;
-      user-select: none;
-    }
-
-    .club:active { cursor: grabbing; }
-    .club:nth-child(4n + 1) { background: var(--white); }
-    .club:nth-child(4n + 2) { background: #fff3a0; }
-    .club:nth-child(4n + 3) { background: var(--coral); }
-    .club:nth-child(4n) { background: #b8f4ff; }
-
-    .club.sortable-ghost {
-      background: var(--yellow);
-      box-shadow: none;
-      opacity: .65;
-    }
-
-    .club.sortable-chosen {
-      box-shadow: 9px 9px 0 var(--ink);
-      transform: translate(-3px, -3px) rotate(-.4deg);
-    }
-
-    .drag-handle {
-      align-items: center;
-      background: var(--ink);
-      color: var(--lime);
-      display: flex;
-      font-size: 26px;
-      height: 54px;
-      justify-content: center;
-      line-height: 1;
-      width: 48px;
-    }
-
-    .rank {
-      font: 600 19px 'DM Mono', monospace;
-      letter-spacing: -.08em;
-    }
-
-    .club-logo {
-      align-items: center;
-      background: var(--white);
-      border: 3px solid var(--ink);
-      display: flex;
-      height: 58px;
-      justify-content: center;
-      overflow: hidden;
-      padding: 5px;
-      width: 58px;
-    }
-
-    .club-logo img { display: block; height: 100%; object-fit: contain; width: 100%; }
-    .logo-fallback { font-size: 13px; font-weight: 700; letter-spacing: -.05em; }
-
-    .club-name {
-      font-family: 'Arial Black', Impact, 'Space Grotesk', sans-serif;
-      font-size: clamp(17px, 2.1vw, 23px);
-      letter-spacing: -.07em;
-      line-height: .95;
-      text-transform: uppercase;
-    }
-
-    .club::after {
-      color: var(--ink);
-      content: 'DRAG';
-      font: 500 9px 'DM Mono', monospace;
-      letter-spacing: .08em;
-    }
-
-    .submit-row {
-      align-items: center;
-      border-top: var(--border);
-      display: flex;
-      gap: 18px;
-      justify-content: space-between;
-      margin-top: 25px;
-      padding-top: 25px;
-    }
-
-    .submit-row p { font-size: 13px; font-weight: 600; line-height: 1.45; margin: 0; max-width: 480px; }
-
-    .submit {
-      background: var(--ink);
-      border: var(--border);
-      box-shadow: 5px 5px 0 var(--coral);
-      color: var(--lime);
-      cursor: pointer;
-      font-family: 'Arial Black', Impact, sans-serif;
-      font-size: 14px;
-      letter-spacing: -.04em;
-      padding: 16px 20px;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .submit:hover { background: var(--coral); box-shadow: 5px 5px 0 var(--ink); color: var(--ink); }
-    .submit:active { box-shadow: 1px 1px 0 var(--ink); transform: translate(4px, 4px); }
-    .submit:disabled { cursor: wait; opacity: .6; }
-
-    .notice {
-      border: var(--border);
-      display: none;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.4;
-      margin-top: 20px;
-      padding: 14px 16px;
-    }
-
-    .notice.show { display: block; }
-    .notice.success { background: var(--white); box-shadow: 4px 4px 0 var(--ink); }
-    .notice.error { background: var(--coral); box-shadow: 4px 4px 0 var(--ink); }
-
-    @media (max-width: 720px) {
+    @media (max-width: 680px) {
       .shell { padding: 14px 14px 50px; }
-      .topbar { margin-bottom: 16px; }
-      .season-chip { box-shadow: 3px 3px 0 var(--ink); font-size: 9px; padding: 8px 9px; }
+      .season-chip { font-size: 9px; padding: 8px 9px; }
       .hero { display: block; padding: 30px 22px 28px; }
-      .hero::after { height: 75px; right: -28px; top: -26px; width: 75px; }
-      .hero-copy { font-size: 15px; margin-top: 22px; }
-      .card { padding: 20px 14px; }
-      .form-head { align-items: start; display: block; }
-      .form-head p:last-child { display: inline-block; margin-top: 18px; text-align: left; }
-      .fields { grid-template-columns: 1fr; gap: 16px; }
-      .list-head { align-items: start; display: block; }
-      .list-head span { display: block; margin-top: 7px; text-align: left; }
-      .club { gap: 9px; grid-template-columns: 40px 40px 52px minmax(0, 1fr); min-height: 82px; padding: 10px; }
-      .drag-handle { font-size: 22px; height: 52px; width: 40px; }
-      .club-logo { height: 52px; width: 52px; }
-      .club::after { display: none; }
-      .club-name { font-size: 17px; }
-      .submit-row { align-items: stretch; display: block; }
-      .submit { margin-top: 18px; width: 100%; }
+      .hero::after { height: 76px; right: -28px; top: -26px; width: 76px; }
+      .hero-copy { font-size: 15px; }
+      .hero-status { margin: 28px 7px 5px 0; }
+      .panel { padding: 18px 13px; }
+      .panel-heading { align-items: start; display: block; }
+      .panel-heading p { margin-top: 9px; text-align: left; }
+      .compare-controls { grid-template-columns: 1fr; }
+      .comparison-stage.dual { grid-template-columns: 1fr; }
+      .current-table { grid-template-columns: repeat(2, 1fr); }
+      .prediction-row { grid-template-columns: 25px 32px minmax(0, 1fr) 39px 30px; }
     }
   </style>
 </head>
@@ -375,42 +232,62 @@
   <main class="shell">
     <header class="topbar">
       <a class="brand" href=".">final whistle<b>·</b></a>
-      <span class="season-chip">PL 2026 / 27</span>
+      <span class="status-pill" id="status-pill">Loading scores</span>
     </header>
 
     <section class="hero">
       <div>
-        <p class="kicker">Premier League prediction game</p>
-        <h1>Call the final <em>table.</em></h1>
-        <p class="hero-copy">Drag every club into the place you think they’ll finish. Make the call, lock it in, and let the season do the talking.</p>
+        <p class="kicker">Premier League prediction game · results room</p>
+        <h1>The table is <em>talking.</em></h1>
+        <p class="hero-copy">The entries are locked. See everyone’s score, check the latest table, and put any two predictions head to head.</p>
+      </div>
+      <div class="hero-status">
+        <span class="hero-status-label">Last score check</span>
+        <strong id="last-updated">Waiting</strong>
+        <p>Auto-refreshes after every other Monday check · 8:00 AM ET</p>
       </div>
     </section>
 
-    <section class="card" aria-labelledby="form-title">
-      <form id="prediction-form">
-        <div class="form-head">
-          <div><p class="kicker">Make your call</p><h2 id="form-title">Your predicted finish</h2></div>
-          <p>Drag anywhere<br>on a row</p>
+    <div id="loading-state" class="state loading">Loading the latest predictions and scores…</div>
+    <div id="error-state" class="state error" hidden></div>
+
+    <div class="dashboard-grid" id="dashboard" hidden>
+      <section class="panel lime" aria-labelledby="leaderboard-title">
+        <div class="panel-heading">
+          <div><p class="kicker">The race</p><h2 id="leaderboard-title">Everyone’s score</h2></div>
+          <p>Lower score<br>is better</p>
         </div>
+        <div class="score-list" id="score-list"></div>
+        <div id="score-empty" class="state empty" hidden>No score update yet. The leaderboard will appear after the next scheduled check.</div>
+      </section>
 
-        <div class="fields">
-          <div class="field"><label for="name">Name</label><input id="name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="e.g. Alex from block 4"></div>
-          <div class="field"><label for="email">Email <small>(for confirmation)</small></label><input id="email" name="email" autocomplete="email" inputmode="email" type="email" required maxlength="160" placeholder="you@example.com"></div>
+      <section class="panel" aria-labelledby="compare-title">
+        <div class="panel-heading">
+          <div><p class="kicker">Pick your fight</p><h2 id="compare-title">Compare calls</h2></div>
+          <button class="refresh-button" id="refresh-button" type="button">Refresh ↻</button>
         </div>
+        <div class="compare-controls">
+          <label class="select-label" for="person-a">Prediction A<select id="person-a"></select></label>
+          <label class="select-label" for="person-b">Prediction B<select id="person-b"><option value="">No comparison</option></select></label>
+        </div>
+        <p class="compare-note">Choose one person for a solo view or two for a side-by-side table. “Miss” shows the distance from the current finish.</p>
+        <div class="comparison-stage" id="comparison-stage"></div>
+        <div id="compare-empty" class="state empty" hidden>No predictions are available yet.</div>
+      </section>
+    </div>
 
-        <div class="list-head"><h3>Final standings</h3><span>Big cards · big calls · touch-friendly</span></div>
-        <ol id="ranking" aria-label="Predicted final standings"></ol>
-
-        <div class="submit-row"><p>Your prediction is saved to the contest sheet when you submit. You won’t be able to edit it here afterward.</p><button class="submit" type="submit">Lock in my prediction ↗</button></div>
-        <div id="notice" class="notice" role="status" aria-live="polite"></div>
-      </form>
+    <section class="panel full-panel" id="current-panel" aria-labelledby="current-title" hidden>
+      <div class="panel-heading">
+        <div><p class="kicker">Reality check</p><h2 id="current-title">Current table</h2></div>
+        <p id="standings-meta">Waiting for update</p>
+      </div>
+      <div class="current-table" id="current-table"></div>
     </section>
-
   </main>
 
   <script>
-    const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxBd5jztp9XrQjfJuHDneXDBUQDtmWAaOT-qku9Ewmw90UY8IJV36OU1AbyIokBc5ay/exec';
-    const teams = [
+    const PUBLIC_GATEWAY_URL = 'https://script.google.com/macros/s/AKfycbxBd5jztp9XrQjfJuHDneXDBUQDtmWAaOT-qku9Ewmw90UY8IJV36OU1AbyIokBc5ay/exec?view=public';
+    const clubs = [
       { name: 'Arsenal', crest: '57', initials: 'ARS' },
       { name: 'Aston Villa', crest: '58', initials: 'AVL' },
       { name: 'Bournemouth', crest: '1044', initials: 'BOU' },
@@ -433,79 +310,175 @@
       { name: 'Tottenham Hotspur', crest: '73', initials: 'TOT' }
     ];
 
-    const ranking = document.getElementById('ranking');
-    const notice = document.getElementById('notice');
-    const submitButton = document.querySelector('.submit');
-    const form = document.getElementById('prediction-form');
-    const nameInput = document.getElementById('name');
-    const emailInput = document.getElementById('email');
+    const state = { data: null, selectedA: '', selectedB: '' };
+    const elements = {
+      dashboard: document.getElementById('dashboard'),
+      loading: document.getElementById('loading-state'),
+      error: document.getElementById('error-state'),
+      status: document.getElementById('status-pill'),
+      updated: document.getElementById('last-updated'),
+      scoreList: document.getElementById('score-list'),
+      scoreEmpty: document.getElementById('score-empty'),
+      personA: document.getElementById('person-a'),
+      personB: document.getElementById('person-b'),
+      comparison: document.getElementById('comparison-stage'),
+      compareEmpty: document.getElementById('compare-empty'),
+      currentPanel: document.getElementById('current-panel'),
+      currentTable: document.getElementById('current-table'),
+      standingsMeta: document.getElementById('standings-meta'),
+      refresh: document.getElementById('refresh-button')
+    };
 
-    function renderTeams() {
-      ranking.innerHTML = teams.map((team, index) => `
-        <li class="club" data-team="${team.name}" aria-label="${index + 1}. ${team.name}; drag anywhere on this card to reorder">
-          <span class="drag-handle" aria-hidden="true">⠿</span>
-          <span class="rank">${String(index + 1).padStart(2, '0')}</span>
-          <span class="club-logo">
-            <img src="https://crests.football-data.org/${team.crest}.svg" alt="${team.name} crest" loading="lazy">
-            <span class="logo-fallback" hidden>${team.initials}</span>
-          </span>
-          <span class="club-name">${team.name}</span>
-        </li>`).join('');
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+    }
 
-      ranking.querySelectorAll('.club-logo img').forEach((image) => {
-        image.addEventListener('error', () => {
-          image.hidden = true;
-          image.nextElementSibling.hidden = false;
-        }, { once: true });
+    const teamAliases = { 'brighton and hove albion': 'brighton', 'brighton hove albion': 'brighton' };
+
+    function normaliseTeam(value) {
+      const key = String(value || '').toLowerCase().replace(/\b(fc|afc)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      return teamAliases[key] || key;
+    }
+
+    function clubMeta(teamName) {
+      const key = normaliseTeam(teamName);
+      return clubs.find((club) => normaliseTeam(club.name) === key) || { crest: '', initials: String(teamName || '?').slice(0, 3).toUpperCase() };
+    }
+
+    function formatDate(value) {
+      if (!value) return 'Not checked yet';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return escapeHtml(value);
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(date) + ' ET';
+    }
+
+    function scoreFor(name) {
+      const record = (state.data?.leaderboard || []).find((item) => item.name === name);
+      return record && Number.isFinite(Number(record.score)) ? Number(record.score) : null;
+    }
+
+    function people() {
+      const names = new Set();
+      (state.data?.predictions || []).forEach((entry) => names.add(entry.name));
+      (state.data?.leaderboard || []).forEach((entry) => names.add(entry.name));
+      const ranking = new Map((state.data?.leaderboard || []).map((entry) => [entry.name, Number(entry.rank) || 999]));
+      return [...names].sort((a, b) => (ranking.get(a) || 999) - (ranking.get(b) || 999) || a.localeCompare(b));
+    }
+
+    function predictionFor(name) { return (state.data?.predictions || []).find((entry) => entry.name === name); }
+
+    function loadPublicData() {
+      return new Promise((resolve, reject) => {
+        const callback = `finalWhistlePublic_${Date.now()}`;
+        const script = document.createElement('script');
+        const timeout = window.setTimeout(() => { cleanup(); reject(new Error('The public results feed did not respond.')); }, 12000);
+        function cleanup() { window.clearTimeout(timeout); delete window[callback]; script.remove(); }
+        window[callback] = (data) => { cleanup(); resolve(data); };
+        script.onerror = () => { cleanup(); reject(new Error('The public results feed could not be loaded.')); };
+        script.src = `${PUBLIC_GATEWAY_URL}&callback=${callback}`;
+        document.body.appendChild(script);
       });
     }
 
-    function currentRanking() { return [...ranking.querySelectorAll('[data-team]')].map((row) => row.dataset.team); }
-    function updateRanks() { [...ranking.children].forEach((row, index) => { row.querySelector('.rank').textContent = String(index + 1).padStart(2, '0'); }); }
-    function showNotice(message, kind) { notice.textContent = message; notice.className = `notice show ${kind}`; }
-    function validateParticipant() {
-      const name = nameInput.value.trim();
-      const email = emailInput.value.trim();
-      nameInput.setCustomValidity(name.length >= 2 && name.length <= 80 ? '' : 'Please enter your name.');
-      emailInput.setCustomValidity(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'Please enter a valid email address.');
-      return form.reportValidity();
+    function renderSelectors() {
+      const names = people();
+      if (!names.includes(state.selectedA)) state.selectedA = names[0] || '';
+      if (state.selectedB === state.selectedA) state.selectedB = '';
+      if (state.selectedB && !names.includes(state.selectedB)) state.selectedB = '';
+      elements.personA.innerHTML = names.length ? names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('') : '<option value="">No predictions</option>';
+      elements.personB.innerHTML = `<option value="">No comparison</option>${names.filter((name) => name !== state.selectedA).map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}`;
+      elements.personA.value = state.selectedA;
+      elements.personB.value = state.selectedB;
     }
 
-    nameInput.addEventListener('input', () => nameInput.setCustomValidity(''));
-    emailInput.addEventListener('input', () => emailInput.setCustomValidity(''));
+    function renderScores() {
+      const leaderboard = state.data?.leaderboard || [];
+      elements.scoreList.innerHTML = leaderboard.map((entry, index) => {
+        const score = Number.isFinite(Number(entry.score)) ? Number(entry.score) : null;
+        return `<div class="score-row"><span class="score-rank">${String(entry.rank || index + 1).padStart(2, '0')}</span><div><div class="score-name">${escapeHtml(entry.name)}</div><span class="score-label">${score === null ? 'Awaiting score' : 'Total places off'}</span></div><strong class="score-value ${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div>`;
+      }).join('');
+      elements.scoreEmpty.hidden = leaderboard.length > 0 || !(state.data?.predictions || []).length;
+    }
 
-    renderTeams();
-    new Sortable(ranking, {
-      animation: 180,
-      ghostClass: 'sortable-ghost',
-      chosenClass: 'sortable-chosen',
-      delay: 60,
-      delayOnTouchOnly: true,
-      fallbackOnBody: true,
-      forceFallback: true,
-      touchStartThreshold: 5,
-      onEnd: updateRanks
-    });
+    function renderCrest(teamName) {
+      const meta = clubMeta(teamName);
+      if (!meta.crest) return `<span class="team-crest"><span class="crest-fallback">${escapeHtml(meta.initials)}</span></span>`;
+      return `<span class="team-crest"><img src="https://crests.football-data.org/${meta.crest}.svg" alt="${escapeHtml(teamName)} crest" loading="lazy"><span class="crest-fallback" hidden>${escapeHtml(meta.initials)}</span></span>`;
+    }
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (!validateParticipant()) return;
-      if (APPS_SCRIPT_WEB_APP_URL.includes('PASTE_YOUR')) { showNotice('The contest form still needs its Google Apps Script URL. See the setup instructions in the README.', 'error'); return; }
-      submitButton.disabled = true;
-      submitButton.textContent = 'Sending…';
-      const payload = { name: nameInput.value.trim(), email: emailInput.value.trim(), season: '2026/27', rankings: currentRanking() };
+    function renderPredictionCard(name) {
+      const prediction = predictionFor(name);
+      const standings = new Map((state.data?.currentStandings || []).map((entry) => [normaliseTeam(entry.team), entry.position]));
+      const rankings = prediction?.rankings || [];
+      const rows = rankings.map((team, index) => {
+        const predicted = index + 1;
+        const actual = standings.get(normaliseTeam(team));
+        const miss = actual ? Math.abs(predicted - actual) : null;
+        const missLabel = miss === null ? '—' : miss === 0 ? '✓' : miss;
+        return `<div class="prediction-row"><span class="prediction-rank">${String(predicted).padStart(2, '0')}</span>${renderCrest(team)}<span class="prediction-team" title="${escapeHtml(team)}">${escapeHtml(team)}</span><span class="prediction-pick">pick<b>${predicted}</b></span><span class="prediction-actual">now<b>${actual || '—'}</b></span><span class="prediction-miss ${miss === 0 ? 'perfect' : ''}">${missLabel}</span></div>`;
+      }).join('');
+      const score = scoreFor(name);
+      return `<article class="prediction-card"><div class="prediction-card-head"><div><span class="prediction-card-label">Prediction</span><h3>${escapeHtml(name)}</h3></div><div class="card-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>${prediction ? `<div class="prediction-list">${rows}</div>` : '<div class="state empty">No prediction found for this person.</div>'}</article>`;
+    }
+
+    function renderComparison() {
+      const selected = [state.selectedA, state.selectedB].filter(Boolean);
+      elements.comparison.className = `comparison-stage ${selected.length > 1 ? 'dual' : ''}`;
+      elements.comparison.innerHTML = selected.map(renderPredictionCard).join('');
+      elements.compareEmpty.hidden = selected.length > 0;
+      elements.comparison.querySelectorAll('.team-crest img').forEach((image) => {
+        image.addEventListener('error', () => { image.hidden = true; image.nextElementSibling.hidden = false; }, { once: true });
+      });
+    }
+
+    function renderCurrentTable() {
+      const standings = (state.data?.currentStandings || []).slice().sort((a, b) => Number(a.position) - Number(b.position));
+      elements.currentPanel.hidden = standings.length === 0;
+      elements.currentTable.innerHTML = standings.map((entry) => `<div class="current-row"><span class="current-position">${String(entry.position).padStart(2, '0')}</span><span class="current-team" title="${escapeHtml(entry.team)}">${escapeHtml(entry.team)}</span><span class="current-points">${entry.points} pts</span></div>`).join('');
+      elements.standingsMeta.textContent = standings.length ? `${standings.length} clubs · latest feed` : 'Waiting for update';
+    }
+
+    function render() {
+      elements.updated.textContent = formatDate(state.data?.updatedAt);
+      renderSelectors();
+      renderScores();
+      renderComparison();
+      renderCurrentTable();
+      elements.dashboard.hidden = false;
+      elements.loading.hidden = true;
+      elements.error.hidden = true;
+      elements.status.className = 'status-pill ready';
+      elements.status.textContent = 'Scores up to date';
+    }
+
+    async function refresh() {
+      elements.refresh.disabled = true;
+      elements.refresh.textContent = 'Loading…';
+      elements.status.className = 'status-pill';
+      elements.status.textContent = 'Refreshing scores';
       try {
-        await fetch(APPS_SCRIPT_WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-        showNotice('Prediction sent — check your inbox for confirmation. Good luck.', 'success');
-        event.target.reset();
-        renderTeams();
+        const data = await loadPublicData();
+        if (!data || !data.ok) throw new Error('The public results feed returned an error.');
+        state.data = data;
+        render();
       } catch (error) {
-        showNotice('We could not send the prediction. Please try again or contact the contest organizer.', 'error');
+        elements.loading.hidden = true;
+        elements.dashboard.hidden = true;
+        elements.currentPanel.hidden = true;
+        elements.error.textContent = `${error.message} Make sure the Apps Script bridge has been redeployed with the public results view.`;
+        elements.error.hidden = false;
+        elements.status.className = 'status-pill error';
+        elements.status.textContent = 'Results unavailable';
       } finally {
-        submitButton.disabled = false;
-        submitButton.textContent = 'Lock in my prediction ↗';
+        elements.refresh.disabled = false;
+        elements.refresh.textContent = 'Refresh ↻';
       }
-    });
+    }
+
+    elements.personA.addEventListener('change', (event) => { state.selectedA = event.target.value; renderSelectors(); renderComparison(); });
+    elements.personB.addEventListener('change', (event) => { state.selectedB = event.target.value; renderComparison(); });
+    elements.refresh.addEventListener('click', refresh);
+    refresh();
   </script>
 </body>
 </html>

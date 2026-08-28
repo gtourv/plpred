@@ -1,12 +1,12 @@
 # PL prediction game
 
-A static drag-and-drop Premier League prediction form with Google Sheets as the database and a Codex-run monthly score update.
+A static Premier League prediction results dashboard with Google Sheets as the database and a Codex-run biweekly score update.
 
 ## What is included
 
-- `index.html` — the public GitHub Pages form. It uses SortableJS for touch-friendly drag-and-drop ordering.
-- `google-apps-script.gs` — a small Google Apps Script bridge. It accepts new predictions and authenticated read/write requests from the monthly runner. It does not score predictions and does not send WhatsApp messages.
-- `codex-plpred-monthly.mjs` — the monthly runner. It reads predictions through the bridge, fetches the live Premier League table from football-data.org, calculates scores and analysis, writes `Current_Standings` and `Leaderboard`, and sends the WhatsApp update through CallMeBot.
+- `index.html` — the public GitHub Pages results dashboard. It shows the leaderboard, latest table, and one- or two-person prediction comparisons.
+- `google-apps-script.gs` — a small Google Apps Script bridge. It accepts new predictions, serves a public read-only results view without email addresses, and handles authenticated read/write requests from the score runner. It does not score predictions and does not send WhatsApp messages.
+- `codex-plpred-monthly.mjs` — the score runner. It reads predictions through the bridge, fetches the live Premier League table from football-data.org, calculates scores and analysis, writes `Current_Standings` and `Leaderboard`, and sends the WhatsApp update through CallMeBot.
 
 ## One-time Google setup
 
@@ -22,10 +22,10 @@ A static drag-and-drop Premier League prediction form with Google Sheets as the 
    - Execute as: **Me**
    - Who has access: **Anyone**
 
-5. Copy the web app URL. In `index.html`, replace `PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE` with that URL.
+5. Copy the web app URL. The public dashboard uses the URL with `?view=public`; the private score runner uses the same URL with the gateway token.
 6. Make sure the spreadsheet has these tabs: `Predictions`, `Current_Standings`, and `Leaderboard`.
 
-The public page never receives the gateway token, football-data.org key, or CallMeBot key. The public submission endpoint only accepts a prediction payload. The token is required for the monthly runner's read and result-sync calls.
+The public dashboard receives only names, predictions, scores, standings, and update timestamps. Email addresses are omitted from the public response. The gateway token, football-data.org key, and CallMeBot key never go to the browser. The public submission endpoint remains in the bridge for historical compatibility, but the GitHub Pages entry point is now read-only.
 
 ## Local test of the monthly runner
 
@@ -56,8 +56,8 @@ node codex-plpred-monthly.mjs --dry-run
 node codex-plpred-monthly.mjs
 ```
 
-The Codex scheduled task runs that normal command on the first day of each month at 8:00 AM Eastern time.
+The Codex scheduled task runs that normal command every other Monday at 8:00 AM Eastern time.
 
 ## GitHub Pages
 
-Enable **Settings → Pages → Deploy from a branch → main → / (root)** after the web app URL has been added to `index.html`. The repository can remain public because the source contains no private keys. If you make the repository private, GitHub Pages availability depends on the GitHub plan and organization settings.
+Enable **Settings → Pages → Deploy from a branch → main → / (root)**. The repository can remain public because the source contains no private keys. If you make the repository private, GitHub Pages availability depends on the GitHub plan and organization settings.
