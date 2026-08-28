@@ -16,6 +16,7 @@ A static Premier League prediction results dashboard with Google Sheets as the d
 
    - `SPREADSHEET_ID` — your Google Sheet ID.
    - `GATEWAY_TOKEN` — generate a long random value. This protects reads and result writes from the scheduled runner.
+   - `SEASON` — `2026/27` for the current contest. This is optional while using the default, but set it explicitly for future seasons.
 
 4. Deploy it with **Deploy → New deployment → Web app**:
 
@@ -28,6 +29,8 @@ A static Premier League prediction results dashboard with Google Sheets as the d
 When the Apps Script code changes, use **Deploy → Manage deployments → Edit → New version → Deploy**. The existing `/exec` URL stays the same.
 
 The public dashboard receives only names, predictions, scores, standings, and update timestamps. Email addresses are omitted from the public response. The gateway token, football-data.org key, and CallMeBot key never go to the browser. The public submission endpoint remains in the bridge for historical compatibility, but the GitHub Pages entry point is now read-only.
+
+For a future season, preserve this season by copying the Google Sheet and Apps Script project, then change `SPREADSHEET_ID` and `SEASON` in the copied project's Script properties. Deploy the copied project as its own web app, update `PUBLIC_GATEWAY_URL` in `index.html`, and update the private runner environment with the new web app URL and season. This keeps the old season's page and results intact.
 
 ## Local test of the monthly runner
 

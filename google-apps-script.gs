@@ -1,6 +1,7 @@
 const PREDICTIONS_TAB = 'Predictions';
 const CURRENT_STANDINGS_TAB = 'Current_Standings';
 const LEADERBOARD_TAB = 'Leaderboard';
+const DEFAULT_SEASON = '2026/27';
 
 function doPost(e) {
   try {
@@ -43,12 +44,13 @@ function doGet(e) {
 
 function readPublicSnapshot_() {
   const spreadsheet = openSpreadsheet_();
+  const season = currentSeason_();
   const currentStandings = readPublicStandings_(spreadsheet.getSheetByName(CURRENT_STANDINGS_TAB));
-  const leaderboard = readPublicLeaderboard_(spreadsheet.getSheetByName(LEADERBOARD_TAB));
+  const leaderboard = readPublicLeaderboard_(spreadsheet.getSheetByName(LEADERBOARD_TAB), season);
   const predictions = readPublicPredictions_(spreadsheet.getSheetByName(PREDICTIONS_TAB));
   return {
     ok: true,
-    season: '2026/27',
+    season: season,
     updatedAt: latestUpdatedAt_(currentStandings, leaderboard),
     currentStandings: currentStandings,
     leaderboard: leaderboard,
@@ -92,7 +94,7 @@ function readPublicStandings_(sheet) {
   });
 }
 
-function readPublicLeaderboard_(sheet) {
+function readPublicLeaderboard_(sheet, fallbackSeason) {
   if (!sheet || sheet.getLastRow() < 2) return [];
   const values = sheet.getDataRange().getValues();
   const headers = values[0].map(function (header) { return String(header).trim().toLowerCase(); });
@@ -112,7 +114,7 @@ function readPublicLeaderboard_(sheet) {
       name: nameIndex >= 0 ? String(row[nameIndex] || '').trim() : '',
       score: scoreIndex >= 0 && row[scoreIndex] !== '' ? Number(row[scoreIndex]) : null,
       updatedAt: updatedAtIndex >= 0 ? String(row[updatedAtIndex] || '') : '',
-      season: seasonIndex >= 0 ? String(row[seasonIndex] || '2026/27').trim() : '2026/27',
+      season: seasonIndex >= 0 ? String(row[seasonIndex] || fallbackSeason).trim() : fallbackSeason,
       biggestMiss: biggestMissIndex >= 0 ? String(row[biggestMissIndex] || '').trim() : '',
       bestCall: bestCallIndex >= 0 ? String(row[bestCallIndex] || '').trim() : '',
     };
@@ -138,7 +140,7 @@ function latestUpdatedAt_(standings, leaderboard) {
 function savePrediction_(payload) {
   const name = String(payload.name || '').trim();
   const email = String(payload.email || '').trim();
-  const season = String(payload.season || '2026/27').trim();
+  const season = String(payload.season || currentSeason_()).trim();
   const rankings = Array.isArray(payload.rankings) ? payload.rankings.map(String) : [];
 
   if (name.length < 2 || name.length > 80) throw new Error('Name is required.');
@@ -177,7 +179,7 @@ function syncResults_(payload) {
     ['Updated At', 'Season', 'Position', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Goals For', 'Goals Against', 'Goal Difference', 'Points'],
   ].concat(standings.map(function (row) {
     return [
-      payload.updatedAt || new Date().toISOString(), payload.season || '2026/27', row.position, row.team,
+      payload.updatedAt || new Date().toISOString(), payload.season || currentSeason_(), row.position, row.team,
       row.played, row.won, row.drawn, row.lost, row.goalsFor, row.goalsAgainst, row.goalDifference, row.points,
     ];
   })));
@@ -185,12 +187,13 @@ function syncResults_(payload) {
   replaceRows_(spreadsheet.getSheetByName(LEADERBOARD_TAB), [
     ['Updated At', 'Season', 'Rank', 'Name', 'Email', 'Score', 'Biggest Miss', 'Best Call'],
   ].concat(leaderboard.map(function (row) {
-    return [payload.updatedAt || new Date().toISOString(), payload.season || '2026/27', row.rank, row.name, row.email, row.score, row.biggestMiss, row.bestCall];
+    return [payload.updatedAt || new Date().toISOString(), payload.season || currentSeason_(), row.rank, row.name, row.email, row.score, row.biggestMiss, row.bestCall];
   })));
 }
 
 function readPredictions_(sheet) {
   if (!sheet || sheet.getLastRow() < 2) return [];
+  const fallbackSeason = currentSeason_();
   const values = sheet.getDataRange().getValues();
   const headers = values[0].map(function (header) { return String(header).trim().toLowerCase(); });
   const nameIndex = findHeader_(headers, ['name', 'predictor']);
@@ -209,7 +212,7 @@ function readPredictions_(sheet) {
       timestamp: timestampIndex >= 0 ? String(row[timestampIndex] || '') : '',
       name: nameIndex >= 0 ? String(row[nameIndex] || '').trim() : String(row[1] || '').trim(),
       email: emailIndex >= 0 ? String(row[emailIndex] || '').trim() : String(row[2] || '').trim(),
-      season: seasonIndex >= 0 ? String(row[seasonIndex] || '2026/27').trim() : '2026/27',
+      season: seasonIndex >= 0 ? String(row[seasonIndex] || fallbackSeason).trim() : fallbackSeason,
       rankings: rankings,
     };
   }).filter(function (entry) {
@@ -269,6 +272,11 @@ function openSpreadsheet_() {
   const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
   if (!id) throw new Error('SPREADSHEET_ID is not configured.');
   return SpreadsheetApp.openById(id);
+}
+
+function currentSeason_() {
+  const configured = PropertiesService.getScriptProperties().getProperty('SEASON');
+  return configured && configured.trim() ? configured.trim() : DEFAULT_SEASON;
 }
 
 function requireGatewayToken_(provided) {
