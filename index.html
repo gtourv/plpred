@@ -205,7 +205,10 @@
     .insight-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 20px; }
     .insight-card { background: var(--neutral-row); border: var(--border); box-shadow: 4px 4px 0 var(--ink); min-width: 0; padding: 13px; }
     .insight-label { display: block; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
-    .insight-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(20px, 3vw, 31px); letter-spacing: -.08em; line-height: .9; margin-top: 10px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .insight-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(19px, 2.5vw, 28px); letter-spacing: -.08em; line-height: .92; margin-top: 10px; overflow-wrap: anywhere; text-transform: uppercase; }
+    .insight-pair-value { display: flex; flex-direction: column; gap: 3px; }
+    .insight-pair-name { overflow-wrap: anywhere; }
+    .insight-pair-divider { font: 500 12px 'DM Mono', monospace; letter-spacing: 0; line-height: 1; }
     .insight-detail { display: block; font: 500 9px 'DM Mono', monospace; line-height: 1.35; margin-top: 9px; text-transform: uppercase; }
     .pairwise-compare { border-top: var(--border); margin-top: 23px; padding-top: 18px; }
     .pairwise-compare-heading { align-items: end; display: flex; gap: 12px; justify-content: space-between; }
@@ -521,6 +524,10 @@
       return `<div class="insight-card"><span class="insight-label">${escapeHtml(label)}</span><strong class="insight-value" title="${escapeHtml(value)}">${escapeHtml(value)}</strong><span class="insight-detail">${escapeHtml(detail)}</span></div>`;
     }
 
+    function insightPairCard(label, firstName, secondName, detail) {
+      return `<div class="insight-card"><span class="insight-label">${escapeHtml(label)}</span><strong class="insight-value insight-pair-value"><span class="insight-pair-name">${escapeHtml(firstName)}</span><span class="insight-pair-divider">↔</span><span class="insight-pair-name">${escapeHtml(secondName)}</span></strong><span class="insight-detail">${escapeHtml(detail)}</span></div>`;
+    }
+
     function renderSimilarity() {
       const entries = completePredictions();
       const pairs = pairwiseComparisons(entries);
@@ -531,8 +538,8 @@
       elements.similarityPanel.hidden = false;
       elements.similarityMeta.textContent = `${entries.length} entrant${entries.length === 1 ? '' : 's'}`;
       elements.insightGrid.innerHTML = [
-        insightCard('Closest pair', closest ? `${closest.firstName} ↔ ${closest.secondName}` : 'Not yet', closest ? `${closest.similarity}% alike · ${closest.exactSlots}/20 exact slots` : 'Need two complete predictions'),
-        insightCard('Widest pair', widest ? `${widest.firstName} ↔ ${widest.secondName}` : 'Not yet', widest ? `${widest.similarity}% alike · ${widest.distance} places apart` : 'Need two complete predictions'),
+        closest ? insightPairCard('Closest pair', closest.firstName, closest.secondName, `${closest.similarity}% alike · ${closest.exactSlots}/20 exact slots`) : insightCard('Closest pair', 'Not yet', 'Need two complete predictions'),
+        widest ? insightPairCard('Widest pair', widest.firstName, widest.secondName, `${widest.similarity}% alike · ${widest.distance} places apart`) : insightCard('Widest pair', 'Not yet', 'Need two complete predictions'),
         insightCard('Most consensus', consensus ? consensus.name : 'Not yet', consensus ? `${consensus.average}% average similarity to the group` : 'Need two complete predictions'),
         insightCard('Most spread team', contested ? contested.name : 'Not yet', contested ? `${contested.spread} places between picks · ${contested.picks.join(', ')}` : 'Need predictions'),
       ].join('');
