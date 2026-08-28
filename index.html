@@ -162,8 +162,9 @@
 
     .prediction-card { background: var(--white); border: var(--border); box-shadow: 5px 5px 0 var(--ink); min-width: 0; padding: 13px; }
     .prediction-card-head { align-items: start; border-bottom: var(--border); display: flex; gap: 10px; justify-content: space-between; margin-bottom: 10px; padding-bottom: 12px; }
+    .prediction-card-head > div:first-child { min-width: 0; }
     .prediction-card-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
-    .prediction-card h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(21px, 2.5vw, 29px); letter-spacing: -.08em; line-height: .86; margin: 0; text-transform: uppercase; }
+    .prediction-card h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(21px, 2.5vw, 29px); letter-spacing: -.08em; line-height: .86; margin: 0; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
     .card-score { background: var(--ink); color: var(--lime); min-width: 58px; padding: 8px 7px; text-align: center; }
     .card-score span { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; }
     .card-score strong { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: 28px; letter-spacing: -.1em; line-height: .8; margin-top: 5px; }
