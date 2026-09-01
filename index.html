@@ -223,6 +223,23 @@
     .pairwise-metric.similarity-mid { background: var(--similarity-mid); }
     .pairwise-metric.similarity-low { background: var(--similarity-low); }
 
+    .team-focus-panel { margin-top: 24px; }
+    .team-focus-head { align-items: end; display: flex; gap: 24px; justify-content: space-between; }
+    .team-focus-head h2 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(28px, 4vw, 45px); letter-spacing: -.08em; line-height: .88; margin: 0; text-transform: uppercase; }
+    .team-select-label { display: grid; flex: 0 1 280px; font: 500 10px 'DM Mono', monospace; gap: 7px; letter-spacing: .08em; text-transform: uppercase; }
+    .team-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 220px)); margin-top: 22px; }
+    .team-summary-card { background: var(--neutral-row); border: 2px solid var(--ink); padding: 12px; }
+    .team-summary-label { display: block; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .team-summary-value { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(28px, 4vw, 43px); letter-spacing: -.1em; line-height: .8; margin-top: 10px; }
+    .team-summary-detail { display: block; font: 500 9px 'DM Mono', monospace; line-height: 1.3; margin-top: 9px; text-transform: uppercase; }
+    .team-picks-meta { font: 500 9px 'DM Mono', monospace; margin: 25px 0 0; text-transform: uppercase; }
+    .team-pick-list { display: grid; gap: 0 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
+    .team-pick-row { align-items: center; border-bottom: 2px solid #d8d4cb; display: grid; gap: 10px; grid-template-columns: 38px minmax(0, 1fr) auto; min-height: 42px; padding: 7px 0; }
+    .team-pick-row:nth-child(1), .team-pick-row:nth-child(2), .team-pick-row:nth-child(3) { border-top: 2px solid #d8d4cb; }
+    .team-pick-position { font: 500 10px 'DM Mono', monospace; }
+    .team-pick-name { font-size: 13px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .team-pick-value { font: 500 9px 'DM Mono', monospace; text-align: right; text-transform: uppercase; }
+
     .full-panel { margin-top: 24px; }
     .current-table { display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: 18px; }
     .current-row { align-items: center; background: var(--neutral-row); border: 2px solid var(--ink); display: grid; gap: 6px; grid-template-columns: 22px minmax(0, 1fr) auto; min-height: 45px; padding: 6px 8px; }
@@ -263,6 +280,16 @@
       .pairwise-compare-heading { align-items: start; display: block; }
       .pairwise-compare-heading p { margin-top: 8px; text-align: left; }
       .pairwise-metrics { grid-template-columns: 1fr 1fr; }
+      .team-focus-head { align-items: start; display: block; }
+      .team-select-label { margin-top: 17px; max-width: 320px; }
+      .team-pick-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 440px) {
+      .team-summary { grid-template-columns: 1fr 1fr; }
+      .team-pick-list { grid-template-columns: 1fr; }
+      .team-pick-row:nth-child(2), .team-pick-row:nth-child(3) { border-top: 0; }
+      .team-pick-row:nth-child(1) { border-top: 2px solid #d8d4cb; }
     }
   </style>
 </head>
@@ -335,6 +362,17 @@
       </section>
     </div>
 
+    <section class="panel team-focus-panel" id="team-focus-panel" aria-labelledby="team-focus-title" hidden>
+      <div class="team-focus-head">
+        <div><p class="kicker">One club at a time</p><h2 id="team-focus-title">Where did everyone put them?</h2></div>
+        <label class="team-select-label" for="team-select">Choose a team<select id="team-select"></select></label>
+      </div>
+      <div class="team-summary" id="team-summary"></div>
+      <p class="team-picks-meta" id="team-picks-meta"></p>
+      <div class="team-pick-list" id="team-pick-list"></div>
+      <div id="team-pick-empty" class="state empty" hidden>No complete predictions are available yet.</div>
+    </section>
+
     <section class="panel full-panel" id="current-panel" aria-labelledby="current-title" hidden>
       <div class="panel-heading">
         <div><p class="kicker">Reality check</p><h2 id="current-title">Current table</h2></div>
@@ -369,7 +407,7 @@
       { name: 'Tottenham Hotspur', crest: '73', initials: 'TOT' }
     ];
 
-    const state = { data: null, selectedA: '', selectedB: '' };
+    const state = { data: null, selectedA: '', selectedB: '', selectedTeam: '' };
     const elements = {
       dashboard: document.getElementById('dashboard'),
       loading: document.getElementById('loading-state'),
@@ -388,6 +426,12 @@
       similarityPanel: document.getElementById('similarity-panel'),
       insightGrid: document.getElementById('insight-grid'),
       similarityMeta: document.getElementById('similarity-meta'),
+      teamFocusPanel: document.getElementById('team-focus-panel'),
+      teamSelect: document.getElementById('team-select'),
+      teamSummary: document.getElementById('team-summary'),
+      teamPicksMeta: document.getElementById('team-picks-meta'),
+      teamPickList: document.getElementById('team-pick-list'),
+      teamPickEmpty: document.getElementById('team-pick-empty'),
       currentPanel: document.getElementById('current-panel'),
       currentTable: document.getElementById('current-table'),
       standingsMeta: document.getElementById('standings-meta'),
@@ -545,6 +589,68 @@
       ].join('');
     }
 
+    function teamOptions(entries) {
+      const names = new Map();
+      entries.forEach((entry) => entry.rankings.forEach((team) => {
+        const key = normaliseTeam(team);
+        const knownClub = clubs.find((club) => normaliseTeam(club.name) === key);
+        names.set(key, knownClub?.name || team);
+      }));
+      const clubOrder = new Map(clubs.map((club, index) => [normaliseTeam(club.name), index]));
+      return [...names.values()].sort((first, second) => (clubOrder.get(normaliseTeam(first)) ?? 999) - (clubOrder.get(normaliseTeam(second)) ?? 999) || first.localeCompare(second));
+    }
+
+    function median(values) {
+      const sorted = values.slice().sort((first, second) => first - second);
+      if (!sorted.length) return null;
+      const middle = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+
+    function formatPick(value) {
+      return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    }
+
+    function ordinal(value) {
+      const suffix = value % 100 >= 11 && value % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
+      return `${value}${suffix}`;
+    }
+
+    function renderTeamFocus() {
+      const entries = completePredictions();
+      const options = teamOptions(entries);
+      elements.teamFocusPanel.hidden = false;
+      if (!options.length) {
+        elements.teamSelect.disabled = true;
+        elements.teamSelect.innerHTML = '<option value="">No teams yet</option>';
+        elements.teamSummary.innerHTML = '';
+        elements.teamPicksMeta.textContent = '';
+        elements.teamPickList.innerHTML = '';
+        elements.teamPickEmpty.hidden = false;
+        return;
+      }
+
+      elements.teamSelect.disabled = false;
+      if (!options.includes(state.selectedTeam)) state.selectedTeam = options[0];
+      elements.teamSelect.innerHTML = options.map((team) => `<option value="${escapeHtml(team)}">${escapeHtml(team)}</option>`).join('');
+      elements.teamSelect.value = state.selectedTeam;
+
+      const teamKey = normaliseTeam(state.selectedTeam);
+      const picks = entries.map((entry) => ({ name: entry.name, pick: entry.rankings.findIndex((team) => normaliseTeam(team) === teamKey) + 1 }))
+        .filter((entry) => entry.pick > 0)
+        .sort((first, second) => first.pick - second.pick || first.name.localeCompare(second.name));
+      const values = picks.map((entry) => entry.pick);
+      const average = values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+      const middle = median(values);
+      elements.teamSummary.innerHTML = [
+        `<div class="team-summary-card"><span class="team-summary-label">Average pick</span><strong class="team-summary-value">${average === null ? '—' : formatPick(average)}</strong><span class="team-summary-detail">across ${picks.length} prediction${picks.length === 1 ? '' : 's'}</span></div>`,
+        `<div class="team-summary-card"><span class="team-summary-label">Median pick</span><strong class="team-summary-value">${middle === null ? '—' : formatPick(middle)}</strong><span class="team-summary-detail">the middle prediction</span></div>`,
+      ].join('');
+      elements.teamPicksMeta.textContent = `${picks.length} pick${picks.length === 1 ? '' : 's'} · sorted by predicted finish`;
+      elements.teamPickList.innerHTML = picks.map((entry) => `<div class="team-pick-row"><span class="team-pick-position">${String(entry.pick).padStart(2, '0')}</span><span class="team-pick-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="team-pick-value">${ordinal(entry.pick)}</span></div>`).join('');
+      elements.teamPickEmpty.hidden = picks.length > 0;
+    }
+
     function loadPublicData() {
       return new Promise((resolve, reject) => {
         const callback = `finalWhistlePublic_${Date.now()}`;
@@ -652,6 +758,7 @@
       renderScores();
       renderComparison();
       renderSimilarity();
+      renderTeamFocus();
       renderCurrentTable();
       elements.dashboard.hidden = false;
       elements.loading.hidden = true;
@@ -674,6 +781,7 @@
         elements.loading.hidden = true;
         elements.dashboard.hidden = true;
         elements.similarityPanel.hidden = true;
+        elements.teamFocusPanel.hidden = true;
         elements.currentPanel.hidden = true;
         elements.error.textContent = `${error.message} Make sure the Apps Script bridge has been redeployed with the public results view.`;
         elements.error.hidden = false;
@@ -687,6 +795,7 @@
 
     elements.personA.addEventListener('change', (event) => { state.selectedA = event.target.value; renderSelectors(); renderComparison(); });
     elements.personB.addEventListener('change', (event) => { state.selectedB = event.target.value; renderComparison(); });
+    elements.teamSelect.addEventListener('change', (event) => { state.selectedTeam = event.target.value; renderTeamFocus(); });
     elements.refresh.addEventListener('click', refresh);
     refresh();
   </script>
