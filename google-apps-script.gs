@@ -2,6 +2,8 @@ const PREDICTIONS_TAB = 'Predictions';
 const CURRENT_STANDINGS_TAB = 'Current_Standings';
 const LEADERBOARD_TAB = 'Leaderboard';
 const DEFAULT_SEASON = '2026/27';
+const PUBLIC_SNAPSHOT_CACHE_KEY = 'public_snapshot_v1';
+const PUBLIC_SNAPSHOT_CACHE_SECONDS = 21600;
 
 function doPost(e) {
   try {
@@ -43,6 +45,22 @@ function doGet(e) {
 }
 
 function readPublicSnapshot_() {
+  const cached = CacheService.getScriptCache().get(PUBLIC_SNAPSHOT_CACHE_KEY);
+  if (cached) {
+    try {
+      const snapshot = JSON.parse(cached);
+      if (snapshot && snapshot.ok) return snapshot;
+    } catch (error) {
+      CacheService.getScriptCache().remove(PUBLIC_SNAPSHOT_CACHE_KEY);
+    }
+  }
+
+  const snapshot = readPublicSnapshotFromSheet_();
+  cachePublicSnapshot_(snapshot);
+  return snapshot;
+}
+
+function readPublicSnapshotFromSheet_() {
   const spreadsheet = openSpreadsheet_();
   const season = currentSeason_();
   const currentStandings = readPublicStandings_(spreadsheet.getSheetByName(CURRENT_STANDINGS_TAB));
@@ -55,6 +73,58 @@ function readPublicSnapshot_() {
     currentStandings: currentStandings,
     leaderboard: leaderboard,
     predictions: predictions,
+  };
+}
+
+function cachePublicSnapshot_(snapshot) {
+  try {
+    CacheService.getScriptCache().put(PUBLIC_SNAPSHOT_CACHE_KEY, JSON.stringify(snapshot), PUBLIC_SNAPSHOT_CACHE_SECONDS);
+  } catch (error) {
+    // A cache miss should never make the public feed fail.
+  }
+}
+
+function publicSnapshotFromSyncPayload_(payload) {
+  const updatedAt = payload.updatedAt || new Date().toISOString();
+  const season = payload.season || currentSeason_();
+  return {
+    ok: true,
+    season: season,
+    updatedAt: updatedAt,
+    currentStandings: (payload.currentStandings || []).map(function (row) {
+      return {
+        updatedAt: updatedAt,
+        position: Number(row.position) || 0,
+        team: String(row.team || '').trim(),
+        played: Number(row.played) || 0,
+        points: Number(row.points) || 0,
+      };
+    }).filter(function (row) {
+      return row.team;
+    }),
+    leaderboard: (payload.leaderboard || []).map(function (row) {
+      return {
+        rank: Number(row.rank) || 0,
+        name: String(row.name || '').trim(),
+        score: row.score === '' || row.score === null || row.score === undefined ? null : Number(row.score),
+        updatedAt: updatedAt,
+        season: season,
+        biggestMiss: String(row.biggestMiss || '').trim(),
+        bestCall: String(row.bestCall || '').trim(),
+      };
+    }).filter(function (row) {
+      return row.name;
+    }),
+    predictions: (payload.predictions || []).map(function (entry) {
+      return {
+        timestamp: String(entry.timestamp || ''),
+        name: String(entry.name || '').trim(),
+        season: String(entry.season || season).trim(),
+        rankings: Array.isArray(entry.rankings) ? entry.rankings.map(String) : [],
+      };
+    }).filter(function (entry) {
+      return entry.name && entry.rankings.length === 20;
+    }),
   };
 }
 
@@ -165,6 +235,7 @@ function savePrediction_(payload) {
       ? [new Date(), name, email, season].concat(rankings)
       : [new Date(), name, email].concat(rankings);
     sheet.appendRow(row);
+    CacheService.getScriptCache().remove(PUBLIC_SNAPSHOT_CACHE_KEY);
   } finally {
     lock.releaseLock();
   }
@@ -189,6 +260,12 @@ function syncResults_(payload) {
   ].concat(leaderboard.map(function (row) {
     return [payload.updatedAt || new Date().toISOString(), payload.season || currentSeason_(), row.rank, row.name, row.email, row.score, row.biggestMiss, row.bestCall];
   })));
+
+  if (Array.isArray(payload.predictions)) {
+    cachePublicSnapshot_(publicSnapshotFromSyncPayload_(payload));
+  } else {
+    CacheService.getScriptCache().remove(PUBLIC_SNAPSHOT_CACHE_KEY);
+  }
 }
 
 function readPredictions_(sheet) {

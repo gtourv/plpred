@@ -39,6 +39,8 @@ When the Apps Script code changes, use **Deploy → Manage deployments → Edit 
 
 The public dashboard receives only names, predictions, scores, standings, and update timestamps. Email addresses are omitted from the public response. The gateway token, football-data.org key, and CallMeBot key never go to the browser. The public submission endpoint remains in the bridge for historical compatibility, but the GitHub Pages entry point is now read-only.
 
+The dashboard keeps the last successful public snapshot in the browser's local storage. It renders that snapshot immediately on later visits while checking Apps Script in the background, retries a failed request once, and shows a stale-results notice if the latest request still cannot connect. The bridge also keeps a sanitized public snapshot in Apps Script `CacheService`, refreshed by the scheduled runner, so normal dashboard reads do not repeatedly open the spreadsheet. After deploying the current `google-apps-script.gs`, run the score runner once to warm that server-side cache. The Apps Script public endpoint currently responds through Google's redirecting web-app host, so a few seconds of latency and occasional cold-start/transient failures are expected; the dashboard's 20-second timeout, retry, and cached fallback are designed for that behavior.
+
 For a future season, preserve this season by copying the Google Sheet and Apps Script project, then change `SPREADSHEET_ID` and `SEASON` in the copied project's Script properties. Deploy the copied project as its own web app, update `PUBLIC_GATEWAY_URL` in `index.html`, and update the private runner environment with the new web app URL and season. This keeps the old season's page and results intact.
 
 ## Local test of the monthly runner

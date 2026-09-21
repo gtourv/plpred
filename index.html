@@ -82,6 +82,7 @@
 
     .status-pill::before { background: var(--coral); border: 2px solid var(--ink); border-radius: 50%; content: ''; height: 9px; width: 9px; }
     .status-pill.ready::before { background: var(--lime); }
+    .status-pill.cached::before { background: var(--yellow); }
     .status-pill.error::before { background: var(--coral); }
 
     .hero {
@@ -263,6 +264,7 @@
     .state { border: var(--border); font-weight: 700; line-height: 1.4; margin-top: 20px; padding: 15px; }
     .state.loading { background: var(--yellow); }
     .state.error { background: var(--coral); }
+    .state.stale { background: var(--yellow); }
     .state.empty { background: var(--white); }
     .state[hidden] { display: none; }
 
@@ -405,6 +407,8 @@
 
   <script>
     const PUBLIC_GATEWAY_URL = 'https://script.google.com/macros/s/AKfycbxBd5jztp9XrQjfJuHDneXDBUQDtmWAaOT-qku9Ewmw90UY8IJV36OU1AbyIokBc5ay/exec?view=public';
+    const PUBLIC_REQUEST_TIMEOUT_MS = 20000;
+    const PUBLIC_REQUEST_RETRY_MS = 800;
     const clubs = [
       { name: 'Arsenal', crest: '57', initials: 'ARS' },
       { name: 'Aston Villa', crest: '58', initials: 'AVL' },
@@ -455,7 +459,8 @@
       }
     ];
 
-    const state = { data: null, selectedA: '', selectedB: '', selectedTeam: '' };
+    const PUBLIC_CACHE_KEY = 'final-whistle-public-snapshot-v1';
+    const state = { data: null, dataSource: 'live', cacheSavedAt: '', selectedA: '', selectedB: '', selectedTeam: '' };
     const elements = {
       dashboard: document.getElementById('dashboard'),
       loading: document.getElementById('loading-state'),
@@ -727,15 +732,68 @@
 
     function loadPublicData() {
       return new Promise((resolve, reject) => {
-        const callback = `finalWhistlePublic_${Date.now()}`;
-        const script = document.createElement('script');
-        const timeout = window.setTimeout(() => { cleanup(); reject(new Error('The public results feed did not respond.')); }, 12000);
-        function cleanup() { window.clearTimeout(timeout); delete window[callback]; script.remove(); }
-        window[callback] = (data) => { cleanup(); resolve(data); };
-        script.onerror = () => { cleanup(); reject(new Error('The public results feed could not be loaded.')); };
-        script.src = `${PUBLIC_GATEWAY_URL}&callback=${callback}`;
-        document.body.appendChild(script);
+        let attempt = 0;
+        function request() {
+          const callback = `finalWhistlePublic_${Date.now()}_${attempt}`;
+          const script = document.createElement('script');
+          const timeout = window.setTimeout(() => fail(new Error('The public results feed did not respond.')), PUBLIC_REQUEST_TIMEOUT_MS);
+          function cleanup() { window.clearTimeout(timeout); delete window[callback]; script.remove(); }
+          function retryOrReject(error) {
+            cleanup();
+            if (attempt < 1) {
+              attempt += 1;
+              window.setTimeout(request, PUBLIC_REQUEST_RETRY_MS);
+            } else {
+              reject(error);
+            }
+          }
+          function fail(error) { retryOrReject(error); }
+          window[callback] = (data) => {
+            if (!isUsableSnapshot(data) && attempt < 1) {
+              retryOrReject(new Error('The public results feed returned an error.'));
+              return;
+            }
+            cleanup();
+            resolve(data);
+          };
+          script.onerror = () => fail(new Error('The public results feed could not be loaded.'));
+          script.src = `${PUBLIC_GATEWAY_URL}&callback=${callback}`;
+          document.body.appendChild(script);
+        }
+        request();
       });
+    }
+
+    function isUsableSnapshot(data) {
+      return Boolean(data?.ok && Array.isArray(data.currentStandings) && Array.isArray(data.leaderboard) && Array.isArray(data.predictions));
+    }
+
+    function readCachedData() {
+      try {
+        const record = JSON.parse(window.localStorage.getItem(PUBLIC_CACHE_KEY) || 'null');
+        if (!record || !isUsableSnapshot(record.data)) return null;
+        return record;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function writeCachedData(data) {
+      try {
+        window.localStorage.setItem(PUBLIC_CACHE_KEY, JSON.stringify({ data, cachedAt: new Date().toISOString() }));
+      } catch (error) {
+        // Private browsing and full storage should not prevent live results from rendering.
+      }
+    }
+
+    function restoreCachedData() {
+      const record = readCachedData();
+      if (!record) return false;
+      state.data = record.data;
+      state.dataSource = 'cache';
+      state.cacheSavedAt = record.cachedAt || record.data.updatedAt || '';
+      render();
+      return true;
     }
 
     function renderSelectors() {
@@ -847,8 +905,8 @@
       elements.dashboard.hidden = false;
       elements.loading.hidden = true;
       elements.error.hidden = true;
-      elements.status.className = 'status-pill ready';
-      elements.status.textContent = 'Scores up to date';
+      elements.status.className = `status-pill ${state.dataSource === 'cache' ? 'cached' : 'ready'}`;
+      elements.status.textContent = state.dataSource === 'cache' ? 'Using saved results' : 'Scores up to date';
     }
 
     async function refresh() {
@@ -858,19 +916,33 @@
       elements.status.textContent = 'Refreshing scores';
       try {
         const data = await loadPublicData();
-        if (!data || !data.ok) throw new Error('The public results feed returned an error.');
+        if (!isUsableSnapshot(data)) throw new Error('The public results feed returned an error.');
         state.data = data;
+        state.dataSource = 'live';
+        state.cacheSavedAt = new Date().toISOString();
+        writeCachedData(data);
         render();
       } catch (error) {
-        elements.loading.hidden = true;
-        elements.dashboard.hidden = true;
-        elements.similarityPanel.hidden = true;
-        elements.teamFocusPanel.hidden = true;
-        elements.currentPanel.hidden = true;
-        elements.error.textContent = `${error.message} Make sure the Apps Script bridge has been redeployed with the public results view.`;
-        elements.error.hidden = false;
-        elements.status.className = 'status-pill error';
-        elements.status.textContent = 'Results unavailable';
+        if (state.data) {
+          state.dataSource = 'cache';
+          render();
+          elements.error.className = 'state stale';
+          elements.error.textContent = `Latest results could not be loaded. Showing saved results from ${formatDate(state.data.updatedAt || state.cacheSavedAt)}.`;
+          elements.error.hidden = false;
+          elements.status.className = 'status-pill cached';
+          elements.status.textContent = 'Using saved results';
+        } else {
+          elements.loading.hidden = true;
+          elements.dashboard.hidden = true;
+          elements.similarityPanel.hidden = true;
+          elements.teamFocusPanel.hidden = true;
+          elements.currentPanel.hidden = true;
+          elements.error.className = 'state error';
+          elements.error.textContent = `${error.message} Make sure the Apps Script bridge has been redeployed with the public results view.`;
+          elements.error.hidden = false;
+          elements.status.className = 'status-pill error';
+          elements.status.textContent = 'Results unavailable';
+        }
       } finally {
         elements.refresh.disabled = false;
         elements.refresh.textContent = 'Refresh ↻';
@@ -881,6 +953,7 @@
     elements.personB.addEventListener('change', (event) => { state.selectedB = event.target.value; renderComparison(); });
     elements.teamSelect.addEventListener('change', (event) => { state.selectedTeam = event.target.value; renderTeamFocus(); });
     elements.refresh.addEventListener('click', refresh);
+    restoreCachedData();
     refresh();
   </script>
 </body>

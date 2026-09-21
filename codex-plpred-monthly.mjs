@@ -279,7 +279,7 @@ function formatMessage(analysis) {
   return lines.join('\n');
 }
 
-async function syncResults(analysis, standings) {
+async function syncResults(analysis, standings, predictions) {
   const leaderboard = analysis.scored.map((entry, index) => ({
     rank: index + 1,
     name: entry.name,
@@ -291,7 +291,7 @@ async function syncResults(analysis, standings) {
   await requestJson(GATEWAY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'sync_results', token: GATEWAY_TOKEN, season: SEASON, updatedAt: new Date().toISOString(), currentStandings: standings, leaderboard }),
+    body: JSON.stringify({ action: 'sync_results', token: GATEWAY_TOKEN, season: SEASON, updatedAt: new Date().toISOString(), currentStandings: standings, leaderboard, predictions }),
   });
 }
 
@@ -318,7 +318,7 @@ async function main() {
     return;
   }
 
-  await syncResults(analysis, standings);
+  await syncResults(analysis, standings, predictions);
   await sendWhatsApp(message);
   console.log(`Updated ${analysis.scored.length} predictions and sent the monthly WhatsApp report.`);
 }
