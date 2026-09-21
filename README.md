@@ -15,6 +15,8 @@ The public dashboard includes two reference predictions alongside the entrant co
 - **Last year + promoted bottom** — the 2025/26 Premier League finish for clubs that stayed up, followed by Coventry City, Ipswich Town, and Hull City in their Championship finish order.
 - **Wage bill ranking** — a dated 2026/27 ranking of estimated gross fixed player payroll after the summer transfer deadline. The dashboard records the source and date checked; figures come from FBref's squad-wage table, which uses Capology data. Wage figures are estimates, exclude bonuses and non-playing staff, and are intentionally frozen as a season reference rather than refreshed during every score check.
 
+Both reference scores are also included in every biweekly WhatsApp report, after the entrant leaderboard and before the narrative read. They remain comparison points only and never affect entrant rankings or movement.
+
 ## One-time Google setup
 
 1. Open [script.google.com](https://script.google.com/) and create a standalone Apps Script project.

@@ -29,6 +29,27 @@ const CLUB_ALIASES = new Map([
   ['tottenham hotspur', 'Tottenham Hotspur'],
 ]);
 
+const REFERENCE_BASELINES = [
+  {
+    name: 'Last year + promoted bottom',
+    rankings: [
+      'Arsenal', 'Manchester City', 'Manchester United', 'Aston Villa', 'Liverpool',
+      'Bournemouth', 'Sunderland', 'Brighton', 'Brentford', 'Chelsea', 'Fulham',
+      'Newcastle United', 'Everton', 'Leeds United', 'Crystal Palace', 'Nottingham Forest',
+      'Tottenham Hotspur', 'Coventry City', 'Ipswich Town', 'Hull City',
+    ],
+  },
+  {
+    name: 'Wage bill ranking',
+    rankings: [
+      'Liverpool', 'Manchester City', 'Arsenal', 'Manchester United', 'Tottenham Hotspur',
+      'Aston Villa', 'Chelsea', 'Newcastle United', 'Crystal Palace', 'Nottingham Forest',
+      'Bournemouth', 'Everton', 'Fulham', 'Leeds United', 'Brighton', 'Sunderland',
+      'Brentford', 'Ipswich Town', 'Hull City', 'Coventry City',
+    ],
+  },
+];
+
 function normalizeClub(value) {
   const normalized = String(value || '').toLowerCase().replace(/\b(fc|afc)\b/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   if (CLUB_ALIASES.has(normalized)) return CLUB_ALIASES.get(normalized);
@@ -107,6 +128,21 @@ function positionLabel(position) {
   const value = Number(position);
   const suffix = value % 100 >= 11 && value % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
   return `${value}${suffix}`;
+}
+
+function scoreRanking(rankings, actualPositions) {
+  return rankings.reduce((total, teamName, index) => {
+    const actual = actualPositions.get(normalizeClub(teamName));
+    return actual ? total + Math.abs(index + 1 - actual) : total;
+  }, 0);
+}
+
+function scoreReferenceBaselines(standings) {
+  const actualPositions = new Map(standings.map((row) => [normalizeClub(row.team), row.position]));
+  return REFERENCE_BASELINES.map((baseline) => ({
+    name: baseline.name,
+    score: scoreRanking(baseline.rankings, actualPositions),
+  }));
 }
 
 function scorePredictions(predictions, standings, previousLeaderboard = []) {
@@ -214,12 +250,14 @@ function formatMovement(analysis) {
 }
 
 function formatMessage(analysis) {
-  const { scored, commonErrors } = analysis;
+  const { scored, commonErrors, referenceBaselines } = analysis;
   const winner = scored[0];
   const runnerUp = scored[1];
   const loser = scored[scored.length - 1];
   const lines = [`🏆 PL prediction update — ${SEASON}`, formatDate(), '', 'THE LEADERBOARD'];
   scored.forEach((entry, index) => lines.push(`${index + 1}. ${entry.name} — ${entry.score}`));
+  lines.push('', 'REFERENCE BASELINES (not entrants; lower is better)');
+  referenceBaselines.forEach((baseline) => lines.push(`${baseline.name} — ${baseline.score}`));
   lines.push('', 'THE READ');
   if (winner && runnerUp) {
     const gap = runnerUp.score - winner.score;
@@ -269,7 +307,10 @@ async function main() {
   const predictions = Array.isArray(snapshot.predictions) ? snapshot.predictions.filter((entry) => entry.rankings?.length === 20) : [];
   if (predictions.length === 0) throw new Error('No complete predictions were found in the Predictions tab.');
   const previousLeaderboard = readPreviousLeaderboard(snapshot.leaderboard);
-  const analysis = scorePredictions(predictions, standings, previousLeaderboard);
+  const analysis = {
+    ...scorePredictions(predictions, standings, previousLeaderboard),
+    referenceBaselines: scoreReferenceBaselines(standings),
+  };
   const message = formatMessage(analysis);
 
   if (DRY_RUN) {
