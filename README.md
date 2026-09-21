@@ -8,6 +8,13 @@ A static Premier League prediction results dashboard with Google Sheets as the d
 - `google-apps-script.gs` — a small Google Apps Script bridge. It accepts new predictions, serves a public read-only results view without email addresses, and handles authenticated read/write requests from the score runner. It does not score predictions and does not send WhatsApp messages.
 - `codex-plpred-monthly.mjs` — the score runner. It reads predictions through the bridge, fetches the live Premier League table from football-data.org, calculates scores and analysis, writes `Current_Standings` and `Leaderboard`, and sends the WhatsApp update through CallMeBot.
 
+## Reference baselines
+
+The public dashboard includes two reference predictions alongside the entrant comparisons. They are scored against the latest `Current_Standings` in the browser, but are not included in the entrant leaderboard, group similarity analysis, or team-pick distributions:
+
+- **Last year + promoted bottom** — the 2025/26 Premier League finish for clubs that stayed up, followed by Coventry City, Ipswich Town, and Hull City in their Championship finish order.
+- **Wage bill ranking** — a dated 2026/27 ranking of estimated gross fixed player payroll after the summer transfer deadline. The dashboard records the source and date checked; figures come from FBref's squad-wage table, which uses Capology data. Wage figures are estimates, exclude bonuses and non-playing staff, and are intentionally frozen as a season reference rather than refreshed during every score check.
+
 ## One-time Google setup
 
 1. Open [script.google.com](https://script.google.com/) and create a standalone Apps Script project.

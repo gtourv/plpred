@@ -74,10 +74,46 @@ async function readStandings() {
   }));
 }
 
-function scorePredictions(predictions, standings) {
+function sheetColumnIndex(headers, names) {
+  for (const name of names) {
+    const index = headers.indexOf(name);
+    if (index >= 0) return index;
+  }
+  return -1;
+}
+
+function participantKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function readPreviousLeaderboard(rows) {
+  if (!Array.isArray(rows) || rows.length < 2) return [];
+  if (!Array.isArray(rows[0])) return rows.filter((row) => row && row.name && row.rank);
+
+  const headers = rows[0].map((header) => String(header).trim().toLowerCase());
+  const rankIndex = sheetColumnIndex(headers, ['rank', 'place']);
+  const nameIndex = sheetColumnIndex(headers, ['name', 'participant name', 'predictor']);
+  const seasonIndex = sheetColumnIndex(headers, ['season']);
+  if (rankIndex < 0 || nameIndex < 0) return [];
+
+  return rows.slice(1).filter((row) => row.some((value) => value !== '')).map((row) => ({
+    rank: Number(row[rankIndex]) || 0,
+    name: String(row[nameIndex] || '').trim(),
+    season: seasonIndex >= 0 ? String(row[seasonIndex] || '').trim() : SEASON,
+  })).filter((row) => row.name && row.rank > 0 && row.season === SEASON);
+}
+
+function positionLabel(position) {
+  const value = Number(position);
+  const suffix = value % 100 >= 11 && value % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
+  return `${value}${suffix}`;
+}
+
+function scorePredictions(predictions, standings, previousLeaderboard = []) {
   const actualPositions = new Map(standings.map((row) => [normalizeClub(row.team), row.position]));
   const teamErrors = new Map();
   const calls = new Map();
+  const previousRanks = new Map(previousLeaderboard.map((entry) => [participantKey(entry.name), Number(entry.rank)]));
   const scored = predictions.map((prediction) => {
     const misses = [];
     let score = 0;
@@ -89,7 +125,7 @@ function scorePredictions(predictions, standings) {
       const delta = Math.abs(predicted - actual);
       score += delta;
       misses.push({ team, predicted, actual, delta });
-      const aggregate = teamErrors.get(team) || { team, total: 0, entries: 0, misses: 0 };
+      const aggregate = teamErrors.get(team) || { team, actual, total: 0, entries: 0, misses: 0 };
       aggregate.total += delta;
       aggregate.entries += 1;
       if (delta > 0) aggregate.misses += 1;
@@ -101,37 +137,106 @@ function scorePredictions(predictions, standings) {
     return { ...prediction, score, misses, biggestMiss: misses[0] || null };
   }).sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
 
+  const ranked = scored.map((entry, index) => {
+    const currentRank = index + 1;
+    const previousRank = previousRanks.get(participantKey(entry.name)) || null;
+    return {
+      ...entry,
+      currentRank,
+      previousRank,
+      movement: previousRank === null ? null : previousRank - currentRank,
+    };
+  });
   const commonErrors = [...teamErrors.values()].sort((a, b) => b.total - a.total).slice(0, 3);
-  const uniqueCalls = scored.flatMap((entry) => entry.misses.filter((miss) => calls.get(`${miss.team}|${miss.predicted}`) === 1).map((miss) => ({ ...miss, name: entry.name })))
-    .sort((a, b) => b.delta - a.delta).slice(0, 4);
-  const biggestChanges = scored.flatMap((entry) => entry.misses.map((miss) => ({ ...miss, name: entry.name })))
-    .sort((a, b) => b.delta - a.delta).slice(0, 3);
+  const movements = ranked.filter((entry) => entry.movement !== null);
+  const biggestClimber = movements.filter((entry) => entry.movement > 0).sort((a, b) => b.movement - a.movement || a.currentRank - b.currentRank)[0] || null;
+  const biggestDrop = movements.filter((entry) => entry.movement < 0).sort((a, b) => a.movement - b.movement || b.currentRank - a.currentRank)[0] || null;
 
-  return { scored, commonErrors, uniqueCalls, biggestChanges };
+  return {
+    scored: ranked,
+    commonErrors,
+    biggestClimber,
+    biggestDrop,
+    hasPreviousLeaderboard: previousRanks.size > 0,
+  };
 }
 
 function formatDate() {
   return new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, dateStyle: 'long' }).format(new Date());
 }
 
+function formatTies(scored) {
+  const groups = new Map();
+  scored.forEach((entry) => {
+    const group = groups.get(entry.score) || [];
+    group.push(entry.name);
+    groups.set(entry.score, group);
+  });
+  const tie = [...groups.entries()].find(([, names]) => names.length > 1);
+  if (!tie) return '';
+  const [score, names] = tie;
+  const label = names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+  return `${label} are tied on ${score}`;
+}
+
+function formatTeamStory(commonErrors) {
+  if (!commonErrors.length) return '';
+  const [lead, ...rest] = commonErrors;
+  const missCount = lead.misses === lead.entries && lead.entries > 1
+    ? 'Every prediction missed'
+    : `${lead.misses} of ${lead.entries} predictions missed`;
+  let story = `${lead.team} are the room's biggest blind spot: ${missCount} their current ${positionLabel(lead.actual)}-place finish`;
+  if (rest.length) {
+    const names = rest.map((error) => error.team);
+    const followUp = names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+    story += `. ${followUp} were the next-biggest collective misses`;
+  }
+  return `${story}.`;
+}
+
+function formatMovement(analysis) {
+  if (!analysis.hasPreviousLeaderboard) {
+    return "This update sets the movement baseline. Next time we'll see who made the biggest climb and who took the biggest tumble.";
+  }
+  if (!analysis.biggestClimber && !analysis.biggestDrop) {
+    return 'The leaderboard held steady this round; no one changed places.';
+  }
+  const parts = [];
+  if (analysis.biggestClimber) {
+    const places = Math.abs(analysis.biggestClimber.movement);
+    parts.push(`${analysis.biggestClimber.name} made the biggest climb, moving up ${places} place${places === 1 ? '' : 's'} to ${positionLabel(analysis.biggestClimber.currentRank)}`);
+  }
+  if (analysis.biggestDrop) {
+    const places = Math.abs(analysis.biggestDrop.movement);
+    parts.push(`${analysis.biggestDrop.name} had the biggest drop, falling ${places} place${places === 1 ? '' : 's'} to ${positionLabel(analysis.biggestDrop.currentRank)}`);
+  }
+  return `${parts.join('. ')}.`;
+}
+
 function formatMessage(analysis) {
-  const { scored, commonErrors, uniqueCalls, biggestChanges } = analysis;
+  const { scored, commonErrors } = analysis;
   const winner = scored[0];
+  const runnerUp = scored[1];
   const loser = scored[scored.length - 1];
-  const lines = [`🏆 PL prediction update — ${SEASON}`, formatDate(), '', 'Scores (lower is better):'];
+  const lines = [`🏆 PL prediction update — ${SEASON}`, formatDate(), '', 'THE LEADERBOARD'];
   scored.forEach((entry, index) => lines.push(`${index + 1}. ${entry.name} — ${entry.score}`));
-  if (biggestChanges.length) {
-    lines.push('', `Biggest swings: ${biggestChanges.map((miss) => `${miss.name}: ${miss.team} ${miss.predicted}→${miss.actual} (${miss.delta})`).join('; ')}`);
+  lines.push('', 'THE READ');
+  if (winner && runnerUp) {
+    const gap = runnerUp.score - winner.score;
+    lines.push(gap > 0
+      ? `${winner.name} is up top, ${gap} point${gap === 1 ? '' : 's'} clear of ${runnerUp.name}.`
+      : `${winner.name} and ${runnerUp.name} are level at the top.`);
   }
-  if (commonErrors.length) {
-    lines.push('', `Common errors: ${commonErrors.map((error) => `${error.team} (${error.misses}/${error.entries} off; ${error.total} total places)`).join('; ')}`);
-  }
-  if (uniqueCalls.length) {
-    lines.push('', `Unique calls: ${uniqueCalls.map((miss) => `${miss.name} had ${miss.team} ${miss.predicted}th`).join('; ')}`);
-  }
+  const tieStory = formatTies(scored);
+  if (tieStory) lines.push(`${tieStory}, while the middle of the table is still wide open.`);
+  const teamStory = formatTeamStory(commonErrors);
+  if (teamStory) lines.push(teamStory);
+  lines.push(formatMovement(analysis));
   if (loser) {
-    const margin = winner && loser.score - winner.score > 0 ? ` by ${loser.score - winner.score} places` : '';
-    lines.push('', `🔥 Roast: ${loser.name} is currently bottom of the table${margin}. Even the spreadsheet is asking for a transfer window.`);
+    const margin = winner ? loser.score - winner.score : 0;
+    const lastPlace = scored.filter((entry) => entry.score === loser.score).length > 1 ? 'tied for last' : 'bringing up the rear';
+    const gap = margin > 0 ? `, ${margin} points behind ${winner.name}` : '';
+    lines.push(`${loser.name} is ${lastPlace}${gap}. That's not a title race; that's a separate division—and the promotion campaign is not going well.`);
   }
   return lines.join('\n');
 }
@@ -163,7 +268,8 @@ async function main() {
   const [snapshot, standings] = await Promise.all([readSheetSnapshot(), readStandings()]);
   const predictions = Array.isArray(snapshot.predictions) ? snapshot.predictions.filter((entry) => entry.rankings?.length === 20) : [];
   if (predictions.length === 0) throw new Error('No complete predictions were found in the Predictions tab.');
-  const analysis = scorePredictions(predictions, standings);
+  const previousLeaderboard = readPreviousLeaderboard(snapshot.leaderboard);
+  const analysis = scorePredictions(predictions, standings, previousLeaderboard);
   const message = formatMessage(analysis);
 
   if (DRY_RUN) {

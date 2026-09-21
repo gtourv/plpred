@@ -157,6 +157,18 @@
     .score-value { font-family: 'Arial Black', Impact, sans-serif; font-size: 31px; letter-spacing: -.1em; line-height: .8; text-align: right; }
     .score-value.pending { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0; line-height: 1; }
 
+    .baseline-panel { background: var(--yellow); }
+    .baseline-list { display: grid; gap: 10px; margin-top: 20px; }
+    .baseline-row { align-items: center; background: var(--white); border: var(--border); box-shadow: 4px 4px 0 var(--ink); display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; padding: 11px 12px; }
+    .baseline-name { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: 16px; letter-spacing: -.06em; line-height: .95; text-transform: uppercase; }
+    .baseline-detail, .baseline-source { display: block; font: 500 8px 'DM Mono', monospace; line-height: 1.35; margin-top: 6px; text-transform: uppercase; }
+    .baseline-source { color: #4a463f; }
+    .baseline-source a { color: inherit; }
+    .baseline-score { background: var(--ink); color: var(--lime); min-width: 54px; padding: 8px 7px; text-align: center; }
+    .baseline-score span { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; }
+    .baseline-score strong { display: block; font-family: 'Arial Black', Impact, sans-serif; font-size: 27px; letter-spacing: -.1em; line-height: .8; margin-top: 6px; }
+    .baseline-score strong.pending { font: 500 10px 'DM Mono', monospace; letter-spacing: 0; line-height: 1; }
+
     .compare-controls { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 20px; }
     .select-label { display: grid; font: 500 10px 'DM Mono', monospace; gap: 7px; letter-spacing: .08em; text-transform: uppercase; }
     select { background: var(--white); border: var(--border); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 700; min-height: 49px; padding: 9px 11px; width: 100%; }
@@ -168,6 +180,7 @@
     .prediction-card-head { align-items: start; border-bottom: var(--border); display: flex; gap: 10px; justify-content: space-between; margin-bottom: 10px; padding-bottom: 12px; }
     .prediction-card-head > div:first-child { min-width: 0; }
     .prediction-card-label { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+    .prediction-card-source { color: #4a463f; display: block; font: 500 8px 'DM Mono', monospace; line-height: 1.25; margin-top: 8px; text-transform: uppercase; }
     .prediction-card h3 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(21px, 2.5vw, 29px); letter-spacing: -.08em; line-height: .86; margin: 0; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
     .card-score { background: var(--ink); color: var(--lime); min-width: 58px; padding: 8px 7px; text-align: center; }
     .card-score span { display: block; font: 500 8px 'DM Mono', monospace; letter-spacing: .08em; }
@@ -326,6 +339,14 @@
           <div id="score-empty" class="state empty" hidden>No score update yet. The leaderboard will appear after the next scheduled check.</div>
         </section>
 
+        <section class="panel baseline-panel" aria-labelledby="baseline-title">
+          <div class="panel-heading">
+            <div><p class="kicker">Reference points</p><h2 id="baseline-title">Baseline calls</h2></div>
+            <p>Not entrants<br>for comparison</p>
+          </div>
+          <div class="baseline-list" id="baseline-list"></div>
+        </section>
+
         <section class="panel similarity-panel" id="similarity-panel" aria-labelledby="similarity-title" hidden>
           <div class="panel-heading">
             <div><p class="kicker">Across the room</p><h2 id="similarity-title">Prediction patterns</h2></div>
@@ -407,6 +428,33 @@
       { name: 'Tottenham Hotspur', crest: '73', initials: 'TOT' }
     ];
 
+    const baselinePredictions = [
+      {
+        name: 'Last year + promoted bottom',
+        detail: '2025/26 finish · promoted clubs placed 18th–20th',
+        sourceLabel: 'Premier League · NBC Sports · EFL',
+        sourceUrl: 'https://www.premierleague.com/en/news/4673099/the-202627-premier-league-season-officially-starts',
+        rankings: [
+          'Arsenal', 'Manchester City', 'Manchester United', 'Aston Villa', 'Liverpool',
+          'Bournemouth', 'Sunderland', 'Brighton', 'Brentford', 'Chelsea', 'Fulham',
+          'Newcastle United', 'Everton', 'Leeds United', 'Crystal Palace', 'Nottingham Forest',
+          'Tottenham Hotspur', 'Coventry City', 'Ipswich Town', 'Hull City'
+        ]
+      },
+      {
+        name: 'Wage bill ranking',
+        detail: 'Estimated gross fixed player payroll · post-deadline snapshot',
+        sourceLabel: 'FBref / Capology · checked Sep 21, 2026',
+        sourceUrl: 'https://fbref.com/en/comps/9/wages/Premier-League-Wages',
+        rankings: [
+          'Liverpool', 'Manchester City', 'Arsenal', 'Manchester United', 'Tottenham Hotspur',
+          'Aston Villa', 'Chelsea', 'Newcastle United', 'Crystal Palace', 'Nottingham Forest',
+          'Bournemouth', 'Everton', 'Fulham', 'Leeds United', 'Brighton', 'Sunderland',
+          'Brentford', 'Ipswich Town', 'Hull City', 'Coventry City'
+        ]
+      }
+    ];
+
     const state = { data: null, selectedA: '', selectedB: '', selectedTeam: '' };
     const elements = {
       dashboard: document.getElementById('dashboard'),
@@ -416,6 +464,7 @@
       updated: document.getElementById('last-updated'),
       scoreList: document.getElementById('score-list'),
       scoreEmpty: document.getElementById('score-empty'),
+      baselineList: document.getElementById('baseline-list'),
       personA: document.getElementById('person-a'),
       personB: document.getElementById('person-b'),
       comparison: document.getElementById('comparison-stage'),
@@ -462,19 +511,37 @@
     }
 
     function scoreFor(name) {
+      const baseline = baselineFor(name);
+      if (baseline) return scorePrediction(baseline.rankings);
       const record = (state.data?.leaderboard || []).find((item) => item.name === name);
       return record && Number.isFinite(Number(record.score)) ? Number(record.score) : null;
     }
+
+    function currentPositions() {
+      return new Map((state.data?.currentStandings || []).map((entry) => [normaliseTeam(entry.team), Number(entry.position)]));
+    }
+
+    function scorePrediction(rankings) {
+      const standings = currentPositions();
+      if (!standings.size || !Array.isArray(rankings) || rankings.length !== 20) return null;
+      return rankings.reduce((total, team, index) => {
+        const actual = standings.get(normaliseTeam(team));
+        return total + (actual ? Math.abs(index + 1 - actual) : 0);
+      }, 0);
+    }
+
+    function baselineFor(name) { return baselinePredictions.find((baseline) => baseline.name === name) || null; }
 
     function people() {
       const names = new Set();
       (state.data?.predictions || []).forEach((entry) => names.add(entry.name));
       (state.data?.leaderboard || []).forEach((entry) => names.add(entry.name));
+      baselinePredictions.forEach((baseline) => names.add(baseline.name));
       const ranking = new Map((state.data?.leaderboard || []).map((entry) => [entry.name, Number(entry.rank) || 999]));
       return [...names].sort((a, b) => (ranking.get(a) || 999) - (ranking.get(b) || 999) || a.localeCompare(b));
     }
 
-    function predictionFor(name) { return (state.data?.predictions || []).find((entry) => entry.name === name); }
+    function predictionFor(name) { return baselineFor(name) || (state.data?.predictions || []).find((entry) => entry.name === name); }
 
     const MAX_PAIRWISE_DISTANCE = 200;
 
@@ -589,6 +656,13 @@
       ].join('');
     }
 
+    function renderBaselines() {
+      elements.baselineList.innerHTML = baselinePredictions.map((baseline) => {
+        const score = scoreFor(baseline.name);
+        return `<div class="baseline-row"><div><span class="baseline-name">${escapeHtml(baseline.name)}</span><span class="baseline-detail">${escapeHtml(baseline.detail)}</span><span class="baseline-source"><a href="${escapeHtml(baseline.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(baseline.sourceLabel)}</a></span></div><div class="baseline-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>`;
+      }).join('');
+    }
+
     function teamOptions(entries) {
       const names = new Map();
       entries.forEach((entry) => entry.rankings.forEach((team) => {
@@ -666,11 +740,18 @@
 
     function renderSelectors() {
       const names = people();
+      const entrants = names.filter((name) => !baselineFor(name));
+      const baselines = names.filter((name) => baselineFor(name));
       if (!names.includes(state.selectedA)) state.selectedA = names[0] || '';
       if (state.selectedB === state.selectedA) state.selectedB = '';
       if (state.selectedB && !names.includes(state.selectedB)) state.selectedB = '';
-      elements.personA.innerHTML = names.length ? names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('') : '<option value="">No predictions</option>';
-      elements.personB.innerHTML = `<option value="">No comparison</option>${names.filter((name) => name !== state.selectedA).map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}`;
+      const optionGroups = (excludeName = '', includeEmpty = false) => {
+        const entrantOptions = entrants.filter((name) => name !== excludeName);
+        const baselineOptions = baselines.filter((name) => name !== excludeName);
+        return `${includeEmpty ? '<option value="">No comparison</option>' : ''}${entrantOptions.length ? `<optgroup label="Entrants">${entrantOptions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}</optgroup>` : ''}${baselineOptions.length ? `<optgroup label="Baselines">${baselineOptions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}</optgroup>` : ''}`;
+      };
+      elements.personA.innerHTML = names.length ? optionGroups() : '<option value="">No predictions</option>';
+      elements.personB.innerHTML = optionGroups(state.selectedA, true);
       elements.personA.value = state.selectedA;
       elements.personB.value = state.selectedB;
     }
@@ -692,6 +773,7 @@
 
     function renderPredictionCard(name) {
       const prediction = predictionFor(name);
+      const baseline = baselineFor(name);
       const standings = new Map((state.data?.currentStandings || []).map((entry) => [normaliseTeam(entry.team), entry.position]));
       const rankings = prediction?.rankings || [];
       const rows = rankings.map((team, index) => {
@@ -711,7 +793,8 @@
         return `<div class="prediction-row ${accuracy.className}"><span class="prediction-rank">${String(predicted).padStart(2, '0')}</span>${renderCrest(team)}<span class="prediction-team" title="${escapeHtml(team)}">${escapeHtml(team)}</span><span class="prediction-pick">pick<b>${predicted}</b></span><span class="prediction-actual">now<b>${actual || '—'}</b></span><span class="prediction-miss ${accuracy.className}" title="${escapeHtml(accuracy.label)}" aria-label="${escapeHtml(accuracy.label)}">${missLabel}</span></div>`;
       }).join('');
       const score = scoreFor(name);
-      return `<article class="prediction-card"><div class="prediction-card-head"><div><span class="prediction-card-label">Prediction</span><h3>${escapeHtml(name)}</h3></div><div class="card-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>${prediction ? `<div class="prediction-list">${rows}</div>` : '<div class="state empty">No prediction found for this person.</div>'}</article>`;
+      const source = baseline ? `<span class="prediction-card-source">${escapeHtml(baseline.detail)}</span>` : '';
+      return `<article class="prediction-card"><div class="prediction-card-head"><div><span class="prediction-card-label">${baseline ? 'Baseline' : 'Prediction'}</span><h3 title="${escapeHtml(name)}">${escapeHtml(name)}</h3>${source}</div><div class="card-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>${prediction ? `<div class="prediction-list">${rows}</div>` : '<div class="state empty">No prediction found for this person.</div>'}</article>`;
     }
 
     function pairwiseMetric(label, value, detail, className = '') {
@@ -756,6 +839,7 @@
       elements.updated.textContent = formatDate(state.data?.updatedAt);
       renderSelectors();
       renderScores();
+      renderBaselines();
       renderComparison();
       renderSimilarity();
       renderTeamFocus();
