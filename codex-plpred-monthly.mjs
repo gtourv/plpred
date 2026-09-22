@@ -6,6 +6,13 @@ const CALLMEBOT_API_KEY = process.env.CALLMEBOT_API_KEY;
 const SEASON = process.env.PLPRED_SEASON || '2026/27';
 const TIMEZONE = process.env.PLPRED_TIMEZONE || 'America/New_York';
 const DRY_RUN = process.argv.includes('--dry-run');
+const BACKFILL_HISTORY = process.argv.includes('--backfill-history');
+
+const BACKFILL_CHECKPOINTS = [
+  { matchweek: 1, standingsDate: '2026-08-25' },
+  { matchweek: 3, standingsDate: '2026-09-07' },
+  { matchweek: 5, standingsDate: '2026-09-21' },
+];
 
 const REQUIRED = {
   PLPRED_SHEET_GATEWAY_URL: GATEWAY_URL,
@@ -76,8 +83,10 @@ async function readSheetSnapshot() {
   return snapshot;
 }
 
-async function readStandings() {
-  const url = 'https://api.football-data.org/v4/competitions/PL/standings?standingType=TOTAL';
+async function readStandings(asOfDate = '') {
+  const url = new URL('https://api.football-data.org/v4/competitions/PL/standings');
+  url.searchParams.set('standingType', 'TOTAL');
+  if (asOfDate) url.searchParams.set('date', asOfDate);
   const body = await requestJson(url, { headers: { 'X-Auth-Token': FOOTBALL_DATA_API_KEY } });
   const table = body.standings?.find((standing) => standing.type === 'TOTAL')?.table || body.standings?.[0]?.table;
   if (!Array.isArray(table) || table.length === 0) throw new Error('football-data.org returned no Premier League standings.');
@@ -93,6 +102,42 @@ async function readStandings() {
     goalDifference: item.goalDifference ?? 0,
     points: item.points ?? 0,
   }));
+}
+
+async function readFinishedMatches() {
+  const url = new URL('https://api.football-data.org/v4/competitions/PL/matches');
+  url.searchParams.set('status', 'FINISHED');
+  url.searchParams.set('limit', '100');
+  const body = await requestJson(url, { headers: { 'X-Auth-Token': FOOTBALL_DATA_API_KEY } });
+  return Array.isArray(body.matches) ? body.matches : [];
+}
+
+function dateAfterUtc(isoDate) {
+  const date = new Date(isoDate);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function latestCompletedOddMatchweek(matches) {
+  const byMatchweek = new Map();
+  for (const match of matches) {
+    const matchweek = Number(match.matchday);
+    if (!Number.isInteger(matchweek) || matchweek % 2 === 0) continue;
+    const group = byMatchweek.get(matchweek) || [];
+    group.push(match);
+    byMatchweek.set(matchweek, group);
+  }
+
+  const complete = [...byMatchweek.entries()]
+    .filter(([, group]) => group.length >= 10 && group.every((match) => match.status === 'FINISHED'))
+    .sort(([first], [second]) => second - first);
+  if (!complete.length) return null;
+
+  const [matchweek, group] = complete[0];
+  const latestFixture = group.reduce((latest, match) => {
+    return new Date(match.utcDate).getTime() > new Date(latest.utcDate).getTime() ? match : latest;
+  });
+  return { matchweek, standingsDate: dateAfterUtc(latestFixture.utcDate) };
 }
 
 function sheetColumnIndex(headers, names) {
@@ -279,7 +324,21 @@ function formatMessage(analysis) {
   return lines.join('\n');
 }
 
-async function syncResults(analysis, standings, predictions) {
+function makeHistoryCheckpoint(matchweek, standingsDate, analysis) {
+  return {
+    checkpointId: `${SEASON}|${matchweek}`,
+    recordedAt: new Date().toISOString(),
+    season: SEASON,
+    matchweek,
+    standingsAsOf: standingsDate,
+    entries: [
+      ...analysis.scored.map((entry, index) => ({ entryType: 'entrant', name: entry.name, score: entry.score, rank: index + 1 })),
+      ...analysis.referenceBaselines.map((baseline) => ({ entryType: 'baseline', name: baseline.name, score: baseline.score, rank: '' })),
+    ],
+  };
+}
+
+async function syncResults(analysis, standings, predictions, historyCheckpoints = []) {
   const leaderboard = analysis.scored.map((entry, index) => ({
     rank: index + 1,
     name: entry.name,
@@ -291,7 +350,16 @@ async function syncResults(analysis, standings, predictions) {
   await requestJson(GATEWAY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'sync_results', token: GATEWAY_TOKEN, season: SEASON, updatedAt: new Date().toISOString(), currentStandings: standings, leaderboard, predictions }),
+    body: JSON.stringify({ action: 'sync_results', token: GATEWAY_TOKEN, season: SEASON, updatedAt: new Date().toISOString(), currentStandings: standings, leaderboard, predictions, historyCheckpoints }),
+  });
+}
+
+async function appendHistory(historyCheckpoints) {
+  if (!historyCheckpoints.length) return;
+  await requestJson(GATEWAY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'append_history', token: GATEWAY_TOKEN, historyCheckpoints }),
   });
 }
 
@@ -302,8 +370,21 @@ async function sendWhatsApp(message) {
   if (!response.ok) throw new Error(`CallMeBot request failed (${response.status}).`);
 }
 
-async function main() {
-  const [snapshot, standings] = await Promise.all([readSheetSnapshot(), readStandings()]);
+async function runScheduledUpdate() {
+  const [snapshot, matches] = await Promise.all([readSheetSnapshot(), readFinishedMatches()]);
+  const latest = latestCompletedOddMatchweek(matches);
+  if (!latest) {
+    console.log('No fully completed odd matchweek is available; no update sent.');
+    return;
+  }
+  const checkpointId = `${SEASON}|${latest.matchweek}`;
+  const history = Array.isArray(snapshot.history) ? snapshot.history : [];
+  if (history.some((row) => row.checkpointId === checkpointId)) {
+    console.log(`Checkpoint ${checkpointId} already exists; no update sent.`);
+    return;
+  }
+
+  const standings = await readStandings(latest.standingsDate);
   const predictions = Array.isArray(snapshot.predictions) ? snapshot.predictions.filter((entry) => entry.rankings?.length === 20) : [];
   if (predictions.length === 0) throw new Error('No complete predictions were found in the Predictions tab.');
   const previousLeaderboard = readPreviousLeaderboard(snapshot.leaderboard);
@@ -311,16 +392,51 @@ async function main() {
     ...scorePredictions(predictions, standings, previousLeaderboard),
     referenceBaselines: scoreReferenceBaselines(standings),
   };
+  const checkpoint = makeHistoryCheckpoint(latest.matchweek, latest.standingsDate, analysis);
   const message = formatMessage(analysis);
 
   if (DRY_RUN) {
+    console.log(`Would add checkpoint ${checkpoint.checkpointId} using standings through ${checkpoint.standingsAsOf}.`);
     console.log(message);
     return;
   }
 
-  await syncResults(analysis, standings, predictions);
+  await syncResults(analysis, standings, predictions, [checkpoint]);
   await sendWhatsApp(message);
-  console.log(`Updated ${analysis.scored.length} predictions and sent the monthly WhatsApp report.`);
+  console.log(`Updated ${analysis.scored.length} predictions, added ${checkpoint.checkpointId}, and sent the WhatsApp report.`);
+}
+
+async function backfillHistory() {
+  const snapshot = await readSheetSnapshot();
+  const predictions = Array.isArray(snapshot.predictions) ? snapshot.predictions.filter((entry) => entry.rankings?.length === 20) : [];
+  if (predictions.length === 0) throw new Error('No complete predictions were found in the Predictions tab.');
+  const existing = new Set((Array.isArray(snapshot.history) ? snapshot.history : []).map((row) => row.checkpointId).filter(Boolean));
+  const checkpoints = [];
+
+  for (const checkpointSpec of BACKFILL_CHECKPOINTS) {
+    const checkpointId = `${SEASON}|${checkpointSpec.matchweek}`;
+    if (existing.has(checkpointId)) continue;
+    const standings = await readStandings(checkpointSpec.standingsDate);
+    const previousLeaderboard = [];
+    const analysis = {
+      ...scorePredictions(predictions, standings, previousLeaderboard),
+      referenceBaselines: scoreReferenceBaselines(standings),
+    };
+    checkpoints.push(makeHistoryCheckpoint(checkpointSpec.matchweek, checkpointSpec.standingsDate, analysis));
+    console.log(`${checkpointId}: ${analysis.scored.map((entry) => `${entry.name} ${entry.score}`).join(', ')}; baselines ${analysis.referenceBaselines.map((entry) => `${entry.name} ${entry.score}`).join(', ')}`);
+  }
+
+  if (DRY_RUN) {
+    console.log(`Would add ${checkpoints.length} history checkpoint${checkpoints.length === 1 ? '' : 's'}; no WhatsApp message sent.`);
+    return;
+  }
+  await appendHistory(checkpoints);
+  console.log(`Added ${checkpoints.length} historical checkpoint${checkpoints.length === 1 ? '' : 's'}; no WhatsApp message sent.`);
+}
+
+async function main() {
+  if (BACKFILL_HISTORY) return backfillHistory();
+  return runScheduledUpdate();
 }
 
 main().catch((error) => {

@@ -1,9 +1,11 @@
 const PREDICTIONS_TAB = 'Predictions';
 const CURRENT_STANDINGS_TAB = 'Current_Standings';
 const LEADERBOARD_TAB = 'Leaderboard';
+const LEADERBOARD_HISTORY_TAB = 'Leaderboard_History';
 const DEFAULT_SEASON = '2026/27';
 const PUBLIC_SNAPSHOT_CACHE_KEY = 'public_snapshot_v1';
 const PUBLIC_SNAPSHOT_CACHE_SECONDS = 21600;
+const HISTORY_HEADERS = ['Checkpoint ID', 'Recorded At', 'Season', 'Matchweek', 'Standings As Of', 'Entry Type', 'Name', 'Score', 'Rank'];
 
 function doPost(e) {
   try {
@@ -14,6 +16,13 @@ function doPost(e) {
       requireGatewayToken_(payload.token);
       syncResults_(payload);
       return json_({ ok: true, action: action });
+    }
+
+    if (action === 'append_history') {
+      requireGatewayToken_(payload.token);
+      const rowsAdded = appendHistoryCheckpoints_(openSpreadsheet_(), payload.historyCheckpoints || []);
+      refreshPublicSnapshotCache_();
+      return json_({ ok: true, action: action, rowsAdded: rowsAdded });
     }
 
     savePrediction_(payload);
@@ -38,6 +47,7 @@ function doGet(e) {
       predictions: readPredictions_(spreadsheet.getSheetByName(PREDICTIONS_TAB)),
       currentStandings: readRows_(spreadsheet.getSheetByName(CURRENT_STANDINGS_TAB)),
       leaderboard: readRows_(spreadsheet.getSheetByName(LEADERBOARD_TAB)),
+      history: readPublicHistory_(spreadsheet.getSheetByName(LEADERBOARD_HISTORY_TAB), currentSeason_()),
     });
   } catch (error) {
     return json_({ ok: false, error: error.message }, 400);
@@ -66,6 +76,7 @@ function readPublicSnapshotFromSheet_() {
   const currentStandings = readPublicStandings_(spreadsheet.getSheetByName(CURRENT_STANDINGS_TAB));
   const leaderboard = readPublicLeaderboard_(spreadsheet.getSheetByName(LEADERBOARD_TAB), season);
   const predictions = readPublicPredictions_(spreadsheet.getSheetByName(PREDICTIONS_TAB));
+  const history = readPublicHistory_(spreadsheet.getSheetByName(LEADERBOARD_HISTORY_TAB), season);
   return {
     ok: true,
     season: season,
@@ -73,7 +84,16 @@ function readPublicSnapshotFromSheet_() {
     currentStandings: currentStandings,
     leaderboard: leaderboard,
     predictions: predictions,
+    history: history,
   };
+}
+
+function refreshPublicSnapshotCache_() {
+  try {
+    cachePublicSnapshot_(readPublicSnapshotFromSheet_());
+  } catch (error) {
+    // A cache refresh should never make an authenticated write fail.
+  }
 }
 
 function cachePublicSnapshot_(snapshot) {
@@ -125,7 +145,57 @@ function publicSnapshotFromSyncPayload_(payload) {
     }).filter(function (entry) {
       return entry.name && entry.rankings.length === 20;
     }),
+    history: (Array.isArray(payload.history) ? payload.history : []).map(function (row) {
+      return {
+        checkpointId: String(row.checkpointId || '').trim(),
+        recordedAt: String(row.recordedAt || '').trim(),
+        season: String(row.season || season).trim(),
+        matchweek: Number(row.matchweek) || 0,
+        standingsAsOf: String(row.standingsAsOf || '').trim(),
+        entryType: row.entryType === 'baseline' ? 'baseline' : 'entrant',
+        name: String(row.name || '').trim(),
+        score: row.score === '' || row.score === null || row.score === undefined ? null : Number(row.score),
+        rank: row.rank === '' || row.rank === null || row.rank === undefined ? null : Number(row.rank),
+      };
+    }).filter(function (row) {
+      return row.checkpointId && row.name && row.score !== null && Number.isFinite(row.score);
+    }),
   };
+}
+
+function readPublicHistory_(sheet, fallbackSeason) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (header) { return String(header).trim().toLowerCase(); });
+  const checkpointIndex = findHeader_(headers, ['checkpoint id', 'checkpoint']);
+  const recordedAtIndex = findHeader_(headers, ['recorded at', 'updated at', 'timestamp']);
+  const seasonIndex = findHeader_(headers, ['season']);
+  const matchweekIndex = findHeader_(headers, ['matchweek', 'matchday', 'week']);
+  const standingsDateIndex = findHeader_(headers, ['standings as of', 'standings date', 'as of']);
+  const entryTypeIndex = findHeader_(headers, ['entry type', 'type']);
+  const nameIndex = findHeader_(headers, ['name', 'participant name', 'predictor']);
+  const scoreIndex = findHeader_(headers, ['score', 'total score', 'points']);
+  const rankIndex = findHeader_(headers, ['rank', 'place']);
+
+  return values.slice(1).filter(function (row) {
+    return row.some(function (value) { return value !== ''; });
+  }).map(function (row) {
+    return {
+      checkpointId: checkpointIndex >= 0 ? String(row[checkpointIndex] || '').trim() : '',
+      recordedAt: recordedAtIndex >= 0 ? String(row[recordedAtIndex] || '').trim() : '',
+      season: seasonIndex >= 0 ? String(row[seasonIndex] || fallbackSeason).trim() : fallbackSeason,
+      matchweek: matchweekIndex >= 0 ? Number(row[matchweekIndex]) || 0 : 0,
+      standingsAsOf: standingsDateIndex >= 0 ? String(row[standingsDateIndex] || '').trim() : '',
+      entryType: entryTypeIndex >= 0 ? String(row[entryTypeIndex] || 'entrant').trim() : 'entrant',
+      name: nameIndex >= 0 ? String(row[nameIndex] || '').trim() : '',
+      score: scoreIndex >= 0 && row[scoreIndex] !== '' ? Number(row[scoreIndex]) : null,
+      rank: rankIndex >= 0 && row[rankIndex] !== '' ? Number(row[rankIndex]) : null,
+    };
+  }).filter(function (row) {
+    return row.season === fallbackSeason && row.checkpointId && row.name && row.score !== null && Number.isFinite(row.score);
+  }).sort(function (a, b) {
+    return a.matchweek - b.matchweek || a.entryType.localeCompare(b.entryType) || a.name.localeCompare(b.name);
+  });
 }
 
 function readPublicPredictions_(sheet) {
@@ -261,11 +331,61 @@ function syncResults_(payload) {
     return [payload.updatedAt || new Date().toISOString(), payload.season || currentSeason_(), row.rank, row.name, row.email, row.score, row.biggestMiss, row.bestCall];
   })));
 
-  if (Array.isArray(payload.predictions)) {
-    cachePublicSnapshot_(publicSnapshotFromSyncPayload_(payload));
-  } else {
-    CacheService.getScriptCache().remove(PUBLIC_SNAPSHOT_CACHE_KEY);
+  appendHistoryCheckpoints_(spreadsheet, payload.historyCheckpoints || []);
+  refreshPublicSnapshotCache_();
+}
+
+function ensureHistorySheet_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(LEADERBOARD_HISTORY_TAB);
+  if (!sheet) sheet = spreadsheet.insertSheet(LEADERBOARD_HISTORY_TAB);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, HISTORY_HEADERS.length).setValues([HISTORY_HEADERS]);
   }
+  return sheet;
+}
+
+function appendHistoryCheckpoints_(spreadsheet, checkpoints) {
+  if (!Array.isArray(checkpoints) || checkpoints.length === 0) return 0;
+  const sheet = ensureHistorySheet_(spreadsheet);
+  const existing = new Set(readPublicHistory_(sheet, currentSeason_()).map(function (row) {
+    return row.checkpointId + '|' + row.name;
+  }));
+  const rows = [];
+
+  checkpoints.forEach(function (checkpoint) {
+    const checkpointId = String(checkpoint && checkpoint.checkpointId || '').trim();
+    const recordedAt = String(checkpoint && checkpoint.recordedAt || new Date().toISOString()).trim();
+    const season = String(checkpoint && checkpoint.season || currentSeason_()).trim();
+    const matchweek = Number(checkpoint && checkpoint.matchweek) || 0;
+    const standingsAsOf = String(checkpoint && checkpoint.standingsAsOf || '').trim();
+    if (!checkpointId || !season || !matchweek || !standingsAsOf || !Array.isArray(checkpoint.entries)) return;
+
+    checkpoint.entries.forEach(function (entry) {
+      const entryType = String(entry && entry.entryType || 'entrant').trim();
+      const name = String(entry && entry.name || '').trim();
+      const score = entry && entry.score !== '' && entry.score !== null && entry.score !== undefined ? Number(entry.score) : NaN;
+      if (!name || !Number.isFinite(score)) return;
+      const key = checkpointId + '|' + name;
+      if (existing.has(key)) return;
+      existing.add(key);
+      rows.push([
+        checkpointId,
+        recordedAt,
+        season,
+        matchweek,
+        standingsAsOf,
+        entryType === 'baseline' ? 'baseline' : 'entrant',
+        name,
+        score,
+        entry && entry.rank !== '' && entry.rank !== null && entry.rank !== undefined ? Number(entry.rank) || '' : '',
+      ]);
+    });
+  });
+
+  if (rows.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HISTORY_HEADERS.length).setValues(rows);
+  }
+  return rows.length;
 }
 
 function readPredictions_(sheet) {

@@ -237,6 +237,23 @@
     .pairwise-metric.similarity-mid { background: var(--similarity-mid); }
     .pairwise-metric.similarity-low { background: var(--similarity-low); }
 
+    .history-panel { margin-top: 24px; }
+    .history-chart { margin-top: 20px; overflow-x: auto; }
+    .history-svg { display: block; min-width: 0; width: 100%; }
+    .history-grid-line { stroke: #d8d4cb; stroke-width: 1; }
+    .history-axis-label { fill: #4a463f; font: 500 10px 'DM Mono', monospace; }
+    .history-x-label { fill: var(--ink); font: 700 11px 'DM Mono', monospace; }
+    .history-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+    .history-line.baseline { stroke-dasharray: 8 6; stroke-width: 2.5; }
+    .history-point { stroke: var(--paper); stroke-width: 2; }
+    .history-point.baseline { fill: var(--paper); stroke-width: 2.5; }
+    .history-legend { display: flex; flex-wrap: wrap; gap: 9px 16px; margin-top: 14px; }
+    .history-legend-item { align-items: center; display: inline-flex; font: 500 9px 'DM Mono', monospace; gap: 6px; max-width: 100%; text-transform: uppercase; }
+    .history-legend-item span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-legend-swatch { border-top: 3px solid var(--ink); display: inline-block; flex: 0 0 24px; }
+    .history-legend-swatch.baseline { border-top-style: dashed; border-top-width: 2px; }
+    .history-empty { margin-top: 20px; }
+
     .team-focus-panel { margin-top: 24px; }
     .team-focus-head { align-items: end; display: flex; gap: 24px; justify-content: space-between; }
     .team-focus-head h2 { font-family: 'Arial Black', Impact, sans-serif; font-size: clamp(28px, 4vw, 45px); letter-spacing: -.08em; line-height: .88; margin: 0; text-transform: uppercase; }
@@ -298,6 +315,7 @@
       .team-focus-head { align-items: start; display: block; }
       .team-select-label { margin-top: 17px; max-width: 320px; }
       .team-pick-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .history-legend { display: grid; grid-template-columns: 1fr 1fr; }
     }
 
     @media (max-width: 440px) {
@@ -323,7 +341,7 @@
       <div class="hero-status">
         <span class="hero-status-label">Last score check</span>
         <strong id="last-updated">Waiting</strong>
-        <p>Auto-refreshes after every other Monday check · 8:00 AM ET</p>
+        <p>Checks Mondays · scores completed odd matchweeks · 8:00 AM ET</p>
       </div>
     </section>
 
@@ -384,6 +402,18 @@
         <div id="compare-empty" class="state empty" hidden>No predictions are available yet.</div>
       </section>
     </div>
+
+    <section class="panel history-panel" id="history-panel" aria-labelledby="history-title">
+      <div class="panel-heading">
+        <div><p class="kicker">The long game</p><h2 id="history-title">Leaderboard over time</h2></div>
+        <p id="history-meta">Waiting for check-ins</p>
+      </div>
+      <div class="history-chart" id="history-chart" hidden>
+        <svg class="history-svg" id="history-svg" viewBox="0 0 920 430" role="img" aria-labelledby="history-title history-meta"></svg>
+        <div class="history-legend" id="history-legend"></div>
+      </div>
+      <div class="state empty history-empty" id="history-empty">The graph will appear after the first historical score check.</div>
+    </section>
 
     <section class="panel team-focus-panel" id="team-focus-panel" aria-labelledby="team-focus-title" hidden>
       <div class="team-focus-head">
@@ -486,6 +516,12 @@
       teamPicksMeta: document.getElementById('team-picks-meta'),
       teamPickList: document.getElementById('team-pick-list'),
       teamPickEmpty: document.getElementById('team-pick-empty'),
+      historyPanel: document.getElementById('history-panel'),
+      historyMeta: document.getElementById('history-meta'),
+      historyChart: document.getElementById('history-chart'),
+      historySvg: document.getElementById('history-svg'),
+      historyLegend: document.getElementById('history-legend'),
+      historyEmpty: document.getElementById('history-empty'),
       currentPanel: document.getElementById('current-panel'),
       currentTable: document.getElementById('current-table'),
       standingsMeta: document.getElementById('standings-meta'),
@@ -665,6 +701,91 @@
       elements.baselineList.innerHTML = baselinePredictions.map((baseline) => {
         const score = scoreFor(baseline.name);
         return `<div class="baseline-row"><div><span class="baseline-name">${escapeHtml(baseline.name)}</span><span class="baseline-detail">${escapeHtml(baseline.detail)}</span><span class="baseline-source"><a href="${escapeHtml(baseline.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(baseline.sourceLabel)}</a></span></div><div class="baseline-score"><span>Score</span><strong class="${score === null ? 'pending' : ''}">${score === null ? 'TBD' : score}</strong></div></div>`;
+      }).join('');
+    }
+
+    function historyData() {
+      const rows = Array.isArray(state.data?.history) ? state.data.history : [];
+      const checkpoints = [...new Map(rows.filter((row) => row.checkpointId && Number(row.matchweek) > 0).map((row) => [row.checkpointId, {
+        id: row.checkpointId,
+        matchweek: Number(row.matchweek),
+        standingsAsOf: row.standingsAsOf || '',
+      }])).values()].sort((first, second) => first.matchweek - second.matchweek);
+      const checkpointIds = new Set(checkpoints.map((checkpoint) => checkpoint.id));
+      const seriesMap = new Map();
+      rows.forEach((row) => {
+        if (!checkpointIds.has(row.checkpointId) || !row.name || !Number.isFinite(Number(row.score))) return;
+        const key = `${row.entryType === 'baseline' ? 'baseline' : 'entrant'}|${row.name}`;
+        const series = seriesMap.get(key) || { name: row.name, entryType: row.entryType === 'baseline' ? 'baseline' : 'entrant', points: new Map() };
+        series.points.set(row.checkpointId, Number(row.score));
+        seriesMap.set(key, series);
+      });
+      const leaderboardOrder = new Map((state.data?.leaderboard || []).map((entry, index) => [entry.name, Number(entry.rank) || index + 1]));
+      const series = [...seriesMap.values()].map((entry) => ({
+        ...entry,
+        points: checkpoints.filter((checkpoint) => entry.points.has(checkpoint.id)).map((checkpoint) => ({ ...checkpoint, score: entry.points.get(checkpoint.id) })),
+      })).filter((entry) => entry.points.length > 0).sort((first, second) => {
+        if (first.entryType !== second.entryType) return first.entryType === 'entrant' ? -1 : 1;
+        return (leaderboardOrder.get(first.name) || 999) - (leaderboardOrder.get(second.name) || 999) || first.name.localeCompare(second.name);
+      });
+      return { checkpoints, series };
+    }
+
+    function historyDateLabel(value) {
+      if (!value) return '';
+      const date = new Date(`${value}T12:00:00Z`);
+      return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(date);
+    }
+
+    function renderHistoryChart() {
+      const { checkpoints, series } = historyData();
+      const hasHistory = checkpoints.length > 0 && series.length > 0;
+      elements.historyChart.hidden = !hasHistory;
+      elements.historyEmpty.hidden = hasHistory;
+      elements.historyMeta.textContent = hasHistory ? `${checkpoints.length} check-in${checkpoints.length === 1 ? '' : 's'} · lower is better` : 'Waiting for check-ins';
+      if (!hasHistory) {
+        elements.historySvg.innerHTML = '';
+        elements.historyLegend.innerHTML = '';
+        return;
+      }
+
+      const width = 920;
+      const height = 430;
+      const margin = { top: 26, right: 26, bottom: 58, left: 52 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      const scores = series.flatMap((entry) => entry.points.map((point) => point.score));
+      const minScore = Math.min(...scores);
+      const maxScore = Math.max(...scores);
+      const scoreRange = Math.max(1, maxScore - minScore);
+      const xFor = (index) => checkpoints.length === 1 ? margin.left + plotWidth / 2 : margin.left + (plotWidth * index) / (checkpoints.length - 1);
+      const yFor = (score) => margin.top + ((score - minScore) / scoreRange) * plotHeight;
+      const palette = ['#ff6b5e', '#7c4dff', '#008a8a', '#d07800', '#3478db', '#c13b79', '#138a43', '#8b5cf6', '#525252'];
+      let svg = '';
+      for (let index = 0; index <= 4; index += 1) {
+        const score = Math.round(minScore + (scoreRange * index) / 4);
+        const y = yFor(score);
+        svg += `<line class="history-grid-line" x1="${margin.left}" x2="${width - margin.right}" y1="${y}" y2="${y}"></line><text class="history-axis-label" x="${margin.left - 10}" y="${y + 4}" text-anchor="end">${score}</text>`;
+      }
+      checkpoints.forEach((checkpoint, index) => {
+        const x = xFor(index);
+        svg += `<line class="history-grid-line" x1="${x}" x2="${x}" y1="${margin.top}" y2="${height - margin.bottom}" opacity=".45"></line><text class="history-x-label" x="${x}" y="${height - 30}" text-anchor="middle">Wk ${checkpoint.matchweek}</text><text class="history-axis-label" x="${x}" y="${height - 14}" text-anchor="middle">${escapeHtml(historyDateLabel(checkpoint.standingsAsOf))}</text>`;
+      });
+      series.forEach((entry, seriesIndex) => {
+        const colour = entry.entryType === 'baseline' ? (entry.name === 'Wage bill ranking' ? '#7c4dff' : '#090909') : palette[seriesIndex % palette.length];
+        const points = entry.points.map((point) => `${xFor(checkpoints.findIndex((checkpoint) => checkpoint.id === point.id))},${yFor(point.score)}`);
+        if (points.length > 1) svg += `<path class="history-line ${entry.entryType === 'baseline' ? 'baseline' : ''}" stroke="${colour}" d="M ${points.join(' L ')}"></path>`;
+        entry.points.forEach((point) => {
+          const x = xFor(checkpoints.findIndex((checkpoint) => checkpoint.id === point.id));
+          const y = yFor(point.score);
+          const dateLabel = point.standingsAsOf ? ` · through ${point.standingsAsOf}` : '';
+          svg += `<circle class="history-point ${entry.entryType === 'baseline' ? 'baseline' : ''}" cx="${x}" cy="${y}" fill="${colour}" r="${entry.entryType === 'baseline' ? 5 : 4}" tabindex="0"><title>${escapeHtml(entry.name)} · Wk ${point.matchweek} · score ${point.score}${dateLabel}</title></circle>`;
+        });
+      });
+      elements.historySvg.innerHTML = svg;
+      elements.historyLegend.innerHTML = series.map((entry, index) => {
+        const colour = entry.entryType === 'baseline' ? (entry.name === 'Wage bill ranking' ? '#7c4dff' : '#090909') : palette[index % palette.length];
+        return `<div class="history-legend-item" title="${escapeHtml(entry.name)}"><i class="history-legend-swatch ${entry.entryType === 'baseline' ? 'baseline' : ''}" style="border-top-color:${colour}"></i><span>${escapeHtml(entry.name)}</span></div>`;
       }).join('');
     }
 
@@ -900,6 +1021,7 @@
       renderBaselines();
       renderComparison();
       renderSimilarity();
+      renderHistoryChart();
       renderTeamFocus();
       renderCurrentTable();
       elements.dashboard.hidden = false;
