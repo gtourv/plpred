@@ -262,36 +262,27 @@ function formatTies(scored) {
 
 function formatTeamStory(commonErrors) {
   if (!commonErrors.length) return '';
-  const [lead, ...rest] = commonErrors;
-  const missCount = lead.misses === lead.entries && lead.entries > 1
-    ? 'Every prediction missed'
-    : `${lead.misses} of ${lead.entries} predictions missed`;
-  let story = `${lead.team} are the room's biggest blind spot: ${missCount} their current ${positionLabel(lead.actual)}-place finish`;
-  if (rest.length) {
-    const names = rest.map((error) => error.team);
-    const followUp = names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
-    story += `. ${followUp} were the next-biggest collective misses`;
-  }
-  return `${story}.`;
+  const lead = commonErrors[0];
+  return `${lead.team} stumped the room: ${lead.misses} of ${lead.entries} missed its current ${positionLabel(lead.actual)}-place finish.`;
 }
 
 function formatMovement(analysis) {
   if (!analysis.hasPreviousLeaderboard) {
-    return "This update sets the movement baseline. Next time we'll see who made the biggest climb and who took the biggest tumble.";
+    return 'This update sets the movement baseline; next check-in will show who climbed or fell.';
   }
   if (!analysis.biggestClimber && !analysis.biggestDrop) {
-    return 'The leaderboard held steady this round; no one changed places.';
+    return 'No one changed places this round.';
   }
   const parts = [];
   if (analysis.biggestClimber) {
     const places = Math.abs(analysis.biggestClimber.movement);
-    parts.push(`${analysis.biggestClimber.name} made the biggest climb, moving up ${places} place${places === 1 ? '' : 's'} to ${positionLabel(analysis.biggestClimber.currentRank)}`);
+    parts.push(`${analysis.biggestClimber.name} climbed ${places} to #${analysis.biggestClimber.currentRank}`);
   }
   if (analysis.biggestDrop) {
     const places = Math.abs(analysis.biggestDrop.movement);
-    parts.push(`${analysis.biggestDrop.name} had the biggest drop, falling ${places} place${places === 1 ? '' : 's'} to ${positionLabel(analysis.biggestDrop.currentRank)}`);
+    parts.push(`${analysis.biggestDrop.name} fell ${places} to #${analysis.biggestDrop.currentRank}`);
   }
-  return `${parts.join('. ')}.`;
+  return `${parts.join('; ')}.`;
 }
 
 function formatMessage(analysis) {
@@ -311,7 +302,7 @@ function formatMessage(analysis) {
       : `${winner.name} and ${runnerUp.name} are level at the top.`);
   }
   const tieStory = formatTies(scored);
-  if (tieStory) lines.push(`${tieStory}, while the middle of the table is still wide open.`);
+  if (tieStory) lines.push(`${tieStory}.`);
   const teamStory = formatTeamStory(commonErrors);
   if (teamStory) lines.push(teamStory);
   lines.push(formatMovement(analysis));
@@ -319,9 +310,16 @@ function formatMessage(analysis) {
     const margin = winner ? loser.score - winner.score : 0;
     const lastPlace = scored.filter((entry) => entry.score === loser.score).length > 1 ? 'tied for last' : 'bringing up the rear';
     const gap = margin > 0 ? `, ${margin} points behind ${winner.name}` : '';
-    lines.push(`${loser.name} is ${lastPlace}${gap}. That's not a title race; that's a separate division—and the promotion campaign is not going well.`);
+    lines.push(`${loser.name} is ${lastPlace}${gap}. Their title charge has the pace of a team bus with the handbrake on.`);
   }
   return lines.join('\n');
+}
+
+function splitReportMessages(message) {
+  const marker = '\n\nTHE READ\n';
+  const readStart = message.indexOf(marker);
+  if (readStart < 0) throw new Error('The report is missing its THE READ section.');
+  return [message.slice(0, readStart), `THE READ\n${message.slice(readStart + marker.length)}`];
 }
 
 function makeHistoryCheckpoint(matchweek, standingsDate, analysis) {
@@ -393,17 +391,19 @@ async function runScheduledUpdate() {
     referenceBaselines: scoreReferenceBaselines(standings),
   };
   const checkpoint = makeHistoryCheckpoint(latest.matchweek, latest.standingsDate, analysis);
-  const message = formatMessage(analysis);
+  const messages = splitReportMessages(formatMessage(analysis));
 
   if (DRY_RUN) {
     console.log(`Would add checkpoint ${checkpoint.checkpointId} using standings through ${checkpoint.standingsAsOf}.`);
-    console.log(message);
+    messages.forEach((message, index) => {
+      console.log(`WhatsApp message ${index + 1} of ${messages.length}:\n${message}`);
+    });
     return;
   }
 
   await syncResults(analysis, standings, predictions, [checkpoint]);
-  await sendWhatsApp(message);
-  console.log(`Updated ${analysis.scored.length} predictions, added ${checkpoint.checkpointId}, and sent the WhatsApp report.`);
+  for (const message of messages) await sendWhatsApp(message);
+  console.log(`Updated ${analysis.scored.length} predictions, added ${checkpoint.checkpointId}, and sent both WhatsApp messages.`);
 }
 
 async function backfillHistory() {
