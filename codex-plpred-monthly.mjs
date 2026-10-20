@@ -285,7 +285,37 @@ function formatMovement(analysis) {
   return `${parts.join('; ')}.`;
 }
 
-function formatMessage(analysis) {
+const LAST_PLACE_JOKES = [
+  ({ name, team, predicted, actual }) => `${team} was ${positionLabel(predicted)} in ${name}'s forecast and finished ${positionLabel(actual)}; their scout has been reassigned to carry the corner flags.`,
+  ({ name, team, delta }) => `${name} missed ${team} by ${delta} places. Even VAR has reviewed the call and decided the banter stands.`,
+  ({ name, team, predicted, actual }) => `${name} sent ${team} to ${positionLabel(predicted)}; the table sent them to ${positionLabel(actual)}. That scouting report was filed from the wrong stadium.`,
+  ({ name, team, delta }) => `${name}'s ${team} call was ${delta} places wide. The winger has stopped his run and is asking for directions.`,
+  ({ name, team, predicted, actual }) => `${name} had ${team} at ${positionLabel(predicted)} and they landed at ${positionLabel(actual)}—a backpass so ambitious it found the car park.`,
+  ({ name, team, delta }) => `${name} got ${team} ${delta} places adrift; their tactics board now has a big red circle around “watch the games.”`,
+  ({ name, team, predicted, actual }) => `${name} called ${team} at ${positionLabel(predicted)}; reality put them ${positionLabel(actual)}. Their crystal ball has been subbed off at halftime.`,
+  ({ name, team, delta }) => `${name}'s ${team} prediction missed by ${delta}. The linesman raised his flag, then lowered it out of pity.`,
+  ({ name, team, predicted, actual }) => `${name} ranked ${team} ${positionLabel(predicted)}; they finished ${positionLabel(actual)}. The pre-match team talk was apparently “pick a number.”`,
+  ({ name, team, delta }) => `${name} was ${delta} places off on ${team}. That prediction got nutmegged by the league table.`,
+  ({ name, team, predicted, actual }) => `${name} parked ${team} at ${positionLabel(predicted)}; they finished ${positionLabel(actual)}. A low block against the evidence—bold, but not effective.`,
+  ({ name, team, delta }) => `${name}'s ${team} call sailed ${delta} places off course. Somewhere, a clearance has just landed closer to the target.`,
+  ({ name, team, predicted, actual }) => `${name} put ${team} at ${positionLabel(predicted)}; they wound up ${positionLabel(actual)}. The recruitment department has been asked to explain itself.`,
+  ({ name, team, delta }) => `${name} missed ${team} by ${delta} spots. Their prediction was so wide it needs its own touchline.`,
+  ({ name, team, predicted, actual }) => `${name} backed ${team} for ${positionLabel(predicted)}; they ended ${positionLabel(actual)}. Even the post-match pundits are still drawing the arrows.`,
+  ({ name, team, delta }) => `${name}'s ${team} forecast was ${delta} places out. Their assistant manager has advised them to focus on throw-ins next season.`,
+  ({ name, team, predicted, actual }) => `${name} called ${team} at ${positionLabel(predicted)}, but ${positionLabel(actual)} was the answer. An own goal from the halfway line.`,
+  ({ name, team, delta }) => `${name}'s ${team} prediction landed ${delta} places off. The ball went one way; the forecast sprinted toward the team bus.`,
+  ({ name, team, predicted, actual }) => `${name sent ${team} to ${positionLabel(predicted)}; they finished ${positionLabel(actual)}. Their scouting network appears to be one confused mascot.`,
+];
+
+function formatLastPlaceJoke(loser, matchweek) {
+  if (!loser?.biggestMiss) return `${loser.name} has plenty of time to study the table before the next kickoff.`;
+  const seasonStartYear = Number.parseInt(String(SEASON).slice(0, 4), 10) || 0;
+  const seasonOffset = seasonStartYear % LAST_PLACE_JOKES.length;
+  const jokeIndex = (Math.floor((matchweek - 1) / 2) + seasonOffset) % LAST_PLACE_JOKES.length;
+  return LAST_PLACE_JOKES[jokeIndex]({ name: loser.name, ...loser.biggestMiss });
+}
+
+function formatMessage(analysis, matchweek) {
   const { scored, commonErrors, referenceBaselines } = analysis;
   const winner = scored[0];
   const runnerUp = scored[1];
@@ -310,7 +340,7 @@ function formatMessage(analysis) {
     const margin = winner ? loser.score - winner.score : 0;
     const lastPlace = scored.filter((entry) => entry.score === loser.score).length > 1 ? 'tied for last' : 'bringing up the rear';
     const gap = margin > 0 ? `, ${margin} points behind ${winner.name}` : '';
-    lines.push(`${loser.name} is ${lastPlace}${gap}. Their title charge has the pace of a team bus with the handbrake on.`);
+    lines.push(`${loser.name} is ${lastPlace}${gap}. ${formatLastPlaceJoke(loser, matchweek)}`);
   }
   return lines.join('\n');
 }
@@ -391,7 +421,7 @@ async function runScheduledUpdate() {
     referenceBaselines: scoreReferenceBaselines(standings),
   };
   const checkpoint = makeHistoryCheckpoint(latest.matchweek, latest.standingsDate, analysis);
-  const messages = splitReportMessages(formatMessage(analysis));
+  const messages = splitReportMessages(formatMessage(analysis, latest.matchweek));
 
   if (DRY_RUN) {
     console.log(`Would add checkpoint ${checkpoint.checkpointId} using standings through ${checkpoint.standingsAsOf}.`);

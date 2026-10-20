@@ -91,7 +91,7 @@ node codex-plpred-monthly.mjs --dry-run
 node codex-plpred-monthly.mjs
 ```
 
-The Codex scheduled task wakes every Monday at 8:00 AM Eastern time. The runner finds the latest fully completed odd matchweek, where all ten fixtures are finished. If there is no new odd matchweek checkpoint, it changes nothing and sends no WhatsApp message. For a new checkpoint, it sends two WhatsApp messages: the season/date, leaderboard, and baselines first, then `THE READ` as a separate message. This naturally handles postponements, international breaks, and weeks with no new completed checkpoint.
+The Codex scheduled task wakes every Monday at 8:00 AM Eastern time. The runner finds the latest fully completed odd matchweek, where all ten fixtures are finished. If there is no new odd matchweek checkpoint, it changes nothing and sends no WhatsApp message. For a new checkpoint, it sends two WhatsApp messages: the season/date, leaderboard, and baselines first, then `THE READ` as a separate message. The last-place line uses a matchweek-specific football joke tied to that entrant's biggest prediction miss; the 19 odd matchweeks each have a distinct punchline, with a season offset to vary the rotation in future seasons. This naturally handles postponements, international breaks, and weeks with no new completed checkpoint.
 
 ## GitHub Pages
 
