@@ -304,7 +304,7 @@ const LAST_PLACE_JOKES = [
   ({ name, team, delta }) => `${name}'s ${team} forecast was ${delta} places out. Their assistant manager has advised them to focus on throw-ins next season.`,
   ({ name, team, predicted, actual }) => `${name} called ${team} at ${positionLabel(predicted)}, but ${positionLabel(actual)} was the answer. An own goal from the halfway line.`,
   ({ name, team, delta }) => `${name}'s ${team} prediction landed ${delta} places off. The ball went one way; the forecast sprinted toward the team bus.`,
-  ({ name, team, predicted, actual }) => `${name sent ${team} to ${positionLabel(predicted)}; they finished ${positionLabel(actual)}. Their scouting network appears to be one confused mascot.`,
+  ({ name, team, predicted, actual }) => `${name} sent ${team} to ${positionLabel(predicted)}; they finished ${positionLabel(actual)}. Their scouting network appears to be one confused mascot.`,
 ];
 
 function formatLastPlaceJoke(loser, matchweek) {
